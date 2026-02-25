@@ -1,0 +1,14 @@
+---
+description: Python module conventions for pymoonraker source
+globs: src/pymoonraker/**/*.py
+alwaysApply: false
+---
+
+# Python Module Conventions
+
+- Every module starts with `from __future__ import annotations`.
+- Use `from pymoonraker.exceptions import ...` for error types — never raise bare `Exception`.
+- Models: inherit `MoonrakerBaseModel`, use `| None = None` for optional fields.
+- Transport/RPC: don't import the client directly — use `TYPE_CHECKING` guard to avoid circular imports.
+- Logging: `logger = logging.getLogger(__name__)` at module level.
+- No mutable default arguments — use `field(default_factory=...)` for dataclasses.

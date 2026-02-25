@@ -1,0 +1,42 @@
+---
+description: Core project conventions for pymoonraker
+alwaysApply: true
+---
+
+# pymoonraker Project Conventions
+
+## Architecture
+
+- **Async-first** — all core logic is async. `SyncMoonrakerClient` wraps via a background loop.
+- **Transport layer** (`transport/`) handles raw I/O; **RPC layer** (`rpc/`) handles JSON-RPC 2.0 protocol; **Client** (`client.py`) orchestrates both.
+- **Models** use Pydantic v2 with `extra="allow"` so unknown fields from newer Moonraker versions don't break parsing.
+
+## Code Generation
+
+- `schema/moonraker_api.yaml` is the single source of truth for API bindings.
+- Run `python scripts/generate_bindings.py` to regenerate `src/pymoonraker/api/_generated.py`.
+- **Never edit `_generated.py` by hand.** Modify the YAML schema instead.
+
+## Python Style
+
+- Target **Python 3.10+** — use `X | Y` union syntax, not `Union[X, Y]`.
+- Use `from __future__ import annotations` in every module.
+- All public functions and methods must have type annotations and docstrings.
+- Use `ruff` for linting/formatting, `mypy --strict` for type checking.
+
+## Models
+
+- Inherit from `MoonrakerBaseModel` (in `models/common.py`).
+- All fields should be `| None = None` unless truly required.
+- Export new models from `models/__init__.py`.
+
+## Testing
+
+- Tests in `tests/` using `pytest` + `pytest-asyncio`.
+- Mock transports for unit tests; use `conftest.py` fixtures.
+- Mark integration tests with `@pytest.mark.integration`.
+
+## Dependencies
+
+- `aiohttp` for WebSocket, `httpx` for HTTP, `pydantic` v2 for models.
+- Virtual environment at `.venv/`; deps in `requirements.txt` + `requirements-dev.txt`.

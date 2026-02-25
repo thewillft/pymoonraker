@@ -1,0 +1,37 @@
+---
+description: Conventions for the Moonraker API YAML schema
+globs: schema/**/*.yaml
+alwaysApply: false
+---
+
+# YAML Schema Conventions
+
+The file `schema/moonraker_api.yaml` defines all Moonraker API endpoints.
+
+## Structure
+
+```yaml
+namespaces:
+  <namespace_name>:
+    description: Human-readable description
+    methods:
+      <method_key>:
+        rpc_method: JSON-RPC method name (e.g. printer.info)
+        http_method: GET | POST | DELETE
+        http_path: /url/path (or null for WS-only)
+        description: What this method does
+        transport: ws | http | both  (default: both)
+        params:
+          <param_name>:
+            type: str | int | float | bool | list | dict | Any
+            required: true | false
+            description: What the parameter does
+        returns:
+          type: Python type annotation
+          description: What is returned
+```
+
+## After Editing
+
+Always regenerate bindings: `python scripts/generate_bindings.py`
+Then commit both the YAML and the regenerated `_generated.py`.

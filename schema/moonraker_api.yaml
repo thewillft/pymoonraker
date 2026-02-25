@@ -1,0 +1,915 @@
+# pymoonraker API Schema
+#
+# This YAML file is the single source of truth for Moonraker API endpoint
+# bindings.  The code-generation script (scripts/generate_bindings.py)
+# reads this schema and produces typed Python methods in
+# src/pymoonraker/api/_generated.py.
+#
+# Schema format
+# =============
+# namespaces:
+#   <namespace_name>:
+#     description: Human-readable description
+#     methods:
+#       <method_key>:
+#         rpc_method: JSON-RPC method name
+#         http_method: GET | POST | DELETE
+#         http_path: /url/path
+#         description: What this method does
+#         transport: ws | http | both  (default: both)
+#         params:
+#           <param_name>:
+#             type: str | int | float | bool | list | dict | Any
+#             required: true | false
+#             description: Parameter description
+#         returns:
+#           type: Python type annotation string
+#           description: What the return value represents
+
+namespaces:
+
+  # ---------------------------------------------------------------------------
+  # Printer
+  # ---------------------------------------------------------------------------
+  printer:
+    description: Klipper printer administration
+    methods:
+
+      info:
+        rpc_method: printer.info
+        http_method: GET
+        http_path: /printer/info
+        description: Get Klipper host information (state, hostname, versions)
+        returns:
+          type: PrinterInfo
+          description: Klipper host information
+
+      emergency_stop:
+        rpc_method: printer.emergency_stop
+        http_method: POST
+        http_path: /printer/emergency_stop
+        description: Immediately halt the printer
+        returns:
+          type: str
+          description: Acknowledgement
+
+      restart:
+        rpc_method: printer.restart
+        http_method: POST
+        http_path: /printer/restart
+        description: Soft-restart Klipper host software
+        returns:
+          type: str
+          description: Acknowledgement
+
+      firmware_restart:
+        rpc_method: printer.firmware_restart
+        http_method: POST
+        http_path: /printer/firmware_restart
+        description: Restart Klipper via firmware restart (MCU reset)
+        returns:
+          type: str
+          description: Acknowledgement
+
+      gcode_script:
+        rpc_method: printer.gcode.script
+        http_method: POST
+        http_path: /printer/gcode/script
+        description: Execute a G-code script
+        params:
+          script:
+            type: str
+            required: true
+            description: G-code to execute
+        returns:
+          type: str
+          description: G-code response
+
+      gcode_help:
+        rpc_method: printer.gcode.help
+        http_method: GET
+        http_path: /printer/gcode/help
+        description: List all available G-code commands with descriptions
+        returns:
+          type: dict[str, str]
+          description: Mapping of command name to help text
+
+      objects_list:
+        rpc_method: printer.objects.list
+        http_method: GET
+        http_path: /printer/objects/list
+        description: List all available printer objects
+        returns:
+          type: PrinterObjectList
+          description: List of printer object names
+
+      objects_query:
+        rpc_method: printer.objects.query
+        http_method: GET
+        http_path: /printer/objects/query
+        description: Query printer object status
+        params:
+          objects:
+            type: dict[str, list[str] | None]
+            required: true
+            description: >-
+              Mapping of object name to list of fields (or None for all fields)
+        returns:
+          type: dict[str, Any]
+          description: Object status data
+
+      objects_subscribe:
+        rpc_method: printer.objects.subscribe
+        http_method: POST
+        http_path: /printer/objects/subscribe
+        description: Subscribe to printer object status updates
+        params:
+          objects:
+            type: dict[str, list[str] | None]
+            required: true
+            description: Objects and fields to subscribe to
+        returns:
+          type: dict[str, Any]
+          description: Current status of subscribed objects
+
+      print_start:
+        rpc_method: printer.print.start
+        http_method: POST
+        http_path: /printer/print/start
+        description: Start printing a file
+        params:
+          filename:
+            type: str
+            required: true
+            description: Path to the G-code file to print
+        returns:
+          type: str
+          description: Acknowledgement
+
+      print_pause:
+        rpc_method: printer.print.pause
+        http_method: POST
+        http_path: /printer/print/pause
+        description: Pause the current print
+        returns:
+          type: str
+          description: Acknowledgement
+
+      print_resume:
+        rpc_method: printer.print.resume
+        http_method: POST
+        http_path: /printer/print/resume
+        description: Resume a paused print
+        returns:
+          type: str
+          description: Acknowledgement
+
+      print_cancel:
+        rpc_method: printer.print.cancel
+        http_method: POST
+        http_path: /printer/print/cancel
+        description: Cancel the current print
+        returns:
+          type: str
+          description: Acknowledgement
+
+  # ---------------------------------------------------------------------------
+  # Server
+  # ---------------------------------------------------------------------------
+  server:
+    description: Moonraker server administration
+    methods:
+
+      info:
+        rpc_method: server.info
+        http_method: GET
+        http_path: /server/info
+        description: Get Moonraker server information
+        returns:
+          type: ServerInfo
+          description: Server information including klippy state and components
+
+      config:
+        rpc_method: server.config
+        http_method: GET
+        http_path: /server/config
+        description: Get the full Moonraker configuration
+        returns:
+          type: dict[str, Any]
+          description: Complete Moonraker configuration
+
+      temperature_store:
+        rpc_method: server.temperature_store
+        http_method: GET
+        http_path: /server/temperature_store
+        description: Get cached temperature history
+        params:
+          include_monitors:
+            type: bool
+            required: false
+            description: Include temperature monitors in the response
+        returns:
+          type: dict[str, Any]
+          description: Temperature history data
+
+      gcode_store:
+        rpc_method: server.gcode_store
+        http_method: GET
+        http_path: /server/gcode_store
+        params:
+          count:
+            type: int
+            required: false
+            description: Number of responses to return
+        description: Get cached G-code console responses
+        returns:
+          type: dict[str, Any]
+          description: Cached G-code responses
+
+      restart:
+        rpc_method: server.restart
+        http_method: POST
+        http_path: /server/restart
+        description: Restart the Moonraker server
+        returns:
+          type: str
+          description: Acknowledgement
+
+      connection_identify:
+        rpc_method: server.connection.identify
+        http_method: POST
+        http_path: null
+        transport: ws
+        description: Identify this client connection to the server
+        params:
+          client_name:
+            type: str
+            required: true
+            description: Name of the client application
+          version:
+            type: str
+            required: true
+            description: Client version string
+          type:
+            type: str
+            required: true
+            description: "Client type: web, desktop, mobile, agent, other"
+          url:
+            type: str
+            required: true
+            description: Client homepage or repository URL
+        returns:
+          type: ConnectionIdentifyResult
+          description: Connection identification result
+
+  # ---------------------------------------------------------------------------
+  # File Management
+  # ---------------------------------------------------------------------------
+  files:
+    description: File and directory management
+    methods:
+
+      list:
+        rpc_method: server.files.list
+        http_method: GET
+        http_path: /server/files/list
+        description: List files in a root directory
+        params:
+          root:
+            type: str
+            required: false
+            description: "Root directory (default: gcodes)"
+        returns:
+          type: list[FileItem]
+          description: List of file entries
+
+      roots:
+        rpc_method: server.files.roots
+        http_method: GET
+        http_path: /server/files/roots
+        description: List all registered file root directories
+        returns:
+          type: list[FileRoot]
+          description: Registered root directories
+
+      metadata:
+        rpc_method: server.files.metadata
+        http_method: GET
+        http_path: /server/files/metadata
+        description: Get detailed metadata for a G-code file
+        params:
+          filename:
+            type: str
+            required: true
+            description: Path to the file relative to its root
+        returns:
+          type: FileMetadata
+          description: File metadata including slicer info and thumbnails
+
+      create_directory:
+        rpc_method: server.files.directory
+        http_method: POST
+        http_path: /server/files/directory
+        description: Create a new directory
+        params:
+          path:
+            type: str
+            required: true
+            description: Directory path to create
+        returns:
+          type: dict[str, Any]
+          description: Created directory info
+
+      delete_directory:
+        rpc_method: server.files.delete_directory
+        http_method: DELETE
+        http_path: /server/files/directory
+        description: Delete a directory
+        params:
+          path:
+            type: str
+            required: true
+            description: Directory path to delete
+          force:
+            type: bool
+            required: false
+            description: Force delete non-empty directory
+        returns:
+          type: dict[str, Any]
+          description: Deleted directory info
+
+      move:
+        rpc_method: server.files.move
+        http_method: POST
+        http_path: /server/files/move
+        description: Move or rename a file or directory
+        params:
+          source:
+            type: str
+            required: true
+            description: Source path
+          dest:
+            type: str
+            required: true
+            description: Destination path
+        returns:
+          type: dict[str, Any]
+          description: Move result
+
+      copy:
+        rpc_method: server.files.copy
+        http_method: POST
+        http_path: /server/files/copy
+        description: Copy a file or directory
+        params:
+          source:
+            type: str
+            required: true
+            description: Source path
+          dest:
+            type: str
+            required: true
+            description: Destination path
+        returns:
+          type: dict[str, Any]
+          description: Copy result
+
+      delete_file:
+        rpc_method: server.files.delete_file
+        http_method: DELETE
+        http_path: /server/files/{root}/{path}
+        description: Delete a file
+        params:
+          root:
+            type: str
+            required: true
+            description: File root
+          path:
+            type: str
+            required: true
+            description: File path relative to root
+        returns:
+          type: dict[str, Any]
+          description: Deletion result
+
+  # ---------------------------------------------------------------------------
+  # Job Queue
+  # ---------------------------------------------------------------------------
+  job_queue:
+    description: Print job queue management
+    methods:
+
+      status:
+        rpc_method: server.job_queue.status
+        http_method: GET
+        http_path: /server/job_queue/status
+        description: Get job queue status and queued jobs
+        returns:
+          type: JobQueueStatus
+          description: Queue state and list of queued jobs
+
+      enqueue:
+        rpc_method: server.job_queue.post_job
+        http_method: POST
+        http_path: /server/job_queue/job
+        description: Add one or more jobs to the queue
+        params:
+          filenames:
+            type: list[str]
+            required: true
+            description: List of filenames to enqueue
+        returns:
+          type: JobQueueStatus
+          description: Updated queue status
+
+      delete:
+        rpc_method: server.job_queue.delete_job
+        http_method: DELETE
+        http_path: /server/job_queue/job
+        description: Remove jobs from the queue
+        params:
+          job_ids:
+            type: list[str]
+            required: true
+            description: List of job IDs to remove
+        returns:
+          type: JobQueueStatus
+          description: Updated queue status
+
+      pause:
+        rpc_method: server.job_queue.pause
+        http_method: POST
+        http_path: /server/job_queue/pause
+        description: Pause the job queue
+        returns:
+          type: JobQueueStatus
+          description: Updated queue status
+
+      start:
+        rpc_method: server.job_queue.start
+        http_method: POST
+        http_path: /server/job_queue/start
+        description: Start or resume the job queue
+        returns:
+          type: JobQueueStatus
+          description: Updated queue status
+
+  # ---------------------------------------------------------------------------
+  # History
+  # ---------------------------------------------------------------------------
+  history:
+    description: Print history
+    methods:
+
+      list:
+        rpc_method: server.history.list
+        http_method: GET
+        http_path: /server/history/list
+        description: List job history entries
+        params:
+          limit:
+            type: int
+            required: false
+            description: Maximum number of entries to return
+          start:
+            type: int
+            required: false
+            description: Starting index
+          since:
+            type: float
+            required: false
+            description: Unix timestamp; only return jobs after this time
+          before:
+            type: float
+            required: false
+            description: Unix timestamp; only return jobs before this time
+          order:
+            type: str
+            required: false
+            description: "Sort order: asc or desc"
+        returns:
+          type: dict[str, Any]
+          description: Paginated list of history jobs
+
+      totals:
+        rpc_method: server.history.totals
+        http_method: GET
+        http_path: /server/history/totals
+        description: Get aggregate print statistics
+        returns:
+          type: HistoryTotals
+          description: Total print time, filament used, etc.
+
+      get_job:
+        rpc_method: server.history.get_job
+        http_method: GET
+        http_path: /server/history/job
+        description: Get details of a single history job
+        params:
+          uid:
+            type: str
+            required: true
+            description: Job ID
+        returns:
+          type: HistoryJob
+          description: Full job details
+
+      delete_job:
+        rpc_method: server.history.delete_job
+        http_method: DELETE
+        http_path: /server/history/job
+        description: Delete a history entry
+        params:
+          uid:
+            type: str
+            required: true
+            description: Job ID to delete
+        returns:
+          type: list[str]
+          description: List of deleted job IDs
+
+  # ---------------------------------------------------------------------------
+  # Machine
+  # ---------------------------------------------------------------------------
+  machine:
+    description: Host machine administration
+    methods:
+
+      system_info:
+        rpc_method: machine.system_info
+        http_method: GET
+        http_path: /machine/system_info
+        description: Get host system information (CPU, distro, network)
+        returns:
+          type: dict[str, Any]
+          description: System information
+
+      shutdown:
+        rpc_method: machine.shutdown
+        http_method: POST
+        http_path: /machine/shutdown
+        description: Shut down the host machine
+        returns:
+          type: str
+          description: Acknowledgement
+
+      reboot:
+        rpc_method: machine.reboot
+        http_method: POST
+        http_path: /machine/reboot
+        description: Reboot the host machine
+        returns:
+          type: str
+          description: Acknowledgement
+
+      proc_stats:
+        rpc_method: machine.proc_stats
+        http_method: GET
+        http_path: /machine/proc_stats
+        description: Get process statistics for Moonraker and system
+        returns:
+          type: dict[str, Any]
+          description: Process and system statistics
+
+      restart_service:
+        rpc_method: machine.services.restart
+        http_method: POST
+        http_path: /machine/services/restart
+        description: Restart a systemd service
+        params:
+          service:
+            type: str
+            required: true
+            description: Service name to restart
+        returns:
+          type: str
+          description: Acknowledgement
+
+      stop_service:
+        rpc_method: machine.services.stop
+        http_method: POST
+        http_path: /machine/services/stop
+        description: Stop a systemd service
+        params:
+          service:
+            type: str
+            required: true
+            description: Service name to stop
+        returns:
+          type: str
+          description: Acknowledgement
+
+      start_service:
+        rpc_method: machine.services.start
+        http_method: POST
+        http_path: /machine/services/start
+        description: Start a systemd service
+        params:
+          service:
+            type: str
+            required: true
+            description: Service name to start
+        returns:
+          type: str
+          description: Acknowledgement
+
+  # ---------------------------------------------------------------------------
+  # Update Manager
+  # ---------------------------------------------------------------------------
+  update_manager:
+    description: Software update management
+    methods:
+
+      status:
+        rpc_method: machine.update.status
+        http_method: GET
+        http_path: /machine/update/status
+        description: Get update status for all tracked software
+        params:
+          refresh:
+            type: bool
+            required: false
+            description: Refresh update state from remote
+        returns:
+          type: dict[str, Any]
+          description: Version info and update availability
+
+      refresh:
+        rpc_method: machine.update.refresh
+        http_method: POST
+        http_path: /machine/update/refresh
+        description: Force refresh of update state from remote
+        returns:
+          type: dict[str, Any]
+          description: Refreshed version info
+
+  # ---------------------------------------------------------------------------
+  # Power
+  # ---------------------------------------------------------------------------
+  power:
+    description: Power device control
+    methods:
+
+      devices:
+        rpc_method: machine.device_power.devices
+        http_method: GET
+        http_path: /machine/device_power/devices
+        description: List all configured power devices
+        returns:
+          type: dict[str, Any]
+          description: Power device list
+
+      get_device:
+        rpc_method: machine.device_power.get_device
+        http_method: GET
+        http_path: /machine/device_power/device
+        description: Get power state of a device
+        params:
+          device:
+            type: str
+            required: true
+            description: Device name
+        returns:
+          type: dict[str, str]
+          description: Device power state
+
+      set_device:
+        rpc_method: machine.device_power.post_device
+        http_method: POST
+        http_path: /machine/device_power/device
+        description: Set power state of a device
+        params:
+          device:
+            type: str
+            required: true
+            description: Device name
+          action:
+            type: str
+            required: true
+            description: "Action: on, off, or toggle"
+        returns:
+          type: dict[str, str]
+          description: Updated device power state
+
+  # ---------------------------------------------------------------------------
+  # Authorization
+  # ---------------------------------------------------------------------------
+  access:
+    description: User authentication and API key management
+    methods:
+
+      login:
+        rpc_method: access.login
+        http_method: POST
+        http_path: /access/login
+        description: Authenticate with username and password
+        params:
+          username:
+            type: str
+            required: true
+            description: Username
+          password:
+            type: str
+            required: true
+            description: Password
+        returns:
+          type: dict[str, Any]
+          description: JWT token and refresh token
+
+      logout:
+        rpc_method: access.logout
+        http_method: POST
+        http_path: /access/logout
+        description: Invalidate current session
+        returns:
+          type: dict[str, Any]
+          description: Logout confirmation
+
+      get_user:
+        rpc_method: access.get_user
+        http_method: GET
+        http_path: /access/user
+        description: Get current authenticated user info
+        returns:
+          type: dict[str, Any]
+          description: User information
+
+      list_users:
+        rpc_method: access.users.list
+        http_method: GET
+        http_path: /access/users/list
+        description: List all registered users
+        returns:
+          type: dict[str, Any]
+          description: User list
+
+      refresh_jwt:
+        rpc_method: access.refresh_jwt
+        http_method: POST
+        http_path: /access/refresh_jwt
+        description: Refresh an expired JWT access token
+        params:
+          refresh_token:
+            type: str
+            required: true
+            description: Refresh token from login
+        returns:
+          type: dict[str, Any]
+          description: New access token
+
+      get_api_key:
+        rpc_method: access.api_key
+        http_method: GET
+        http_path: /access/api_key
+        description: Get the current API key
+        returns:
+          type: str
+          description: API key string
+
+      oneshot_token:
+        rpc_method: access.oneshot_token
+        http_method: GET
+        http_path: /access/oneshot_token
+        description: Generate a single-use authentication token
+        returns:
+          type: str
+          description: Oneshot token for WebSocket auth
+
+  # ---------------------------------------------------------------------------
+  # Database
+  # ---------------------------------------------------------------------------
+  database:
+    description: Moonraker key-value database
+    methods:
+
+      list_namespaces:
+        rpc_method: server.database.list
+        http_method: GET
+        http_path: /server/database/list
+        description: List all database namespaces
+        returns:
+          type: dict[str, Any]
+          description: List of namespaces
+
+      get_item:
+        rpc_method: server.database.get_item
+        http_method: GET
+        http_path: /server/database/item
+        description: Retrieve a value from the database
+        params:
+          namespace:
+            type: str
+            required: true
+            description: Database namespace
+          key:
+            type: str
+            required: false
+            description: Key to retrieve (omit for full namespace)
+        returns:
+          type: Any
+          description: Stored value
+
+      post_item:
+        rpc_method: server.database.post_item
+        http_method: POST
+        http_path: /server/database/item
+        description: Store or update a value in the database
+        params:
+          namespace:
+            type: str
+            required: true
+            description: Database namespace
+          key:
+            type: str
+            required: true
+            description: Key to set
+          value:
+            type: Any
+            required: true
+            description: Value to store
+        returns:
+          type: dict[str, Any]
+          description: Confirmation with stored key
+
+      delete_item:
+        rpc_method: server.database.delete_item
+        http_method: DELETE
+        http_path: /server/database/item
+        description: Delete a value from the database
+        params:
+          namespace:
+            type: str
+            required: true
+            description: Database namespace
+          key:
+            type: str
+            required: true
+            description: Key to delete
+        returns:
+          type: dict[str, Any]
+          description: Deleted key confirmation
+
+  # ---------------------------------------------------------------------------
+  # Announcements
+  # ---------------------------------------------------------------------------
+  announcements:
+    description: Moonraker announcement system
+    methods:
+
+      list:
+        rpc_method: server.announcements.list
+        http_method: GET
+        http_path: /server/announcements/list
+        description: List current announcements
+        params:
+          include_dismissed:
+            type: bool
+            required: false
+            description: Include dismissed announcements
+        returns:
+          type: dict[str, Any]
+          description: Announcement entries
+
+      dismiss:
+        rpc_method: server.announcements.dismiss
+        http_method: POST
+        http_path: /server/announcements/dismiss
+        description: Dismiss an announcement
+        params:
+          entry_id:
+            type: str
+            required: true
+            description: Announcement entry ID
+        returns:
+          type: dict[str, Any]
+          description: Dismissal confirmation
+
+  # ---------------------------------------------------------------------------
+  # Webcams
+  # ---------------------------------------------------------------------------
+  webcams:
+    description: Webcam configuration
+    methods:
+
+      list:
+        rpc_method: server.webcams.list
+        http_method: GET
+        http_path: /server/webcams/list
+        description: List configured webcams
+        returns:
+          type: dict[str, Any]
+          description: Webcam configurations
+
+      get:
+        rpc_method: server.webcams.get_item
+        http_method: GET
+        http_path: /server/webcams/item
+        description: Get a single webcam configuration
+        params:
+          name:
+            type: str
+            required: true
+            description: Webcam name
+        returns:
+          type: dict[str, Any]
+          description: Webcam configuration

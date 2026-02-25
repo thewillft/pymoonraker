@@ -1,0 +1,322 @@
+"""High-level async Moonraker client."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any, Callable, Coroutine
+
+from pymoonraker.auth import AuthManager
+from pymoonraker.events import EventDispatcher
+from pymoonraker.events.types import EventType
+from pymoonraker.exceptions import MoonrakerConnectionError
+from pymoonraker.models.common import KlippyState
+from pymoonraker.models.server import ConnectionIdentifyResult, PrinterInfo, ServerInfo
+from pymoonraker.rpc import JsonRpcHandler
+from pymoonraker.rpc.types import RpcNotification
+from pymoonraker.transport.http import HttpTransport
+from pymoonraker.transport.websocket import WebSocketTransport
+
+logger = logging.getLogger(__name__)
+
+_CLIENT_NAME = "pymoonraker"
+_CLIENT_TYPE = "agent"
+
+Callback = Callable[..., Coroutine[Any, Any, None]] | Callable[..., None]
+
+
+class MoonrakerClient:
+    """Async-first client for the Moonraker API.
+
+    Provides:
+    * WebSocket RPC with auto-reconnect.
+    * HTTP transport for file operations and one-shot queries.
+    * Typed event system for Moonraker notifications.
+    * Auth management (API key, JWT, oneshot).
+
+    Usage::
+
+        async with MoonrakerClient("192.168.1.100") as client:
+            info = await client.server_info()
+            print(info.klippy_state)
+
+            client.on(EventType.STATUS_UPDATE, my_handler)
+            await client.subscribe_objects({"toolhead": None})
+    """
+
+    def __init__(
+        self,
+        host: str,
+        port: int = 7125,
+        *,
+        api_key: str | None = None,
+        ssl: Any = None,
+        auto_reconnect: bool = True,
+        reconnect_interval: float = 5.0,
+        max_reconnect_interval: float = 60.0,
+        rpc_timeout: float = 30.0,
+    ) -> None:
+        scheme_ws = "wss" if ssl else "ws"
+        scheme_http = "https" if ssl else "http"
+
+        self._host = host
+        self._port = port
+        self._auto_reconnect = auto_reconnect
+        self._reconnect_interval = reconnect_interval
+        self._max_reconnect_interval = max_reconnect_interval
+
+        self._ws_transport = WebSocketTransport(
+            f"{scheme_ws}://{host}:{port}/websocket",
+            ssl=ssl,
+        )
+        self._http_transport = HttpTransport(
+            f"{scheme_http}://{host}:{port}",
+            api_key=api_key,
+            ssl_context=ssl,
+        )
+
+        self._events = EventDispatcher()
+        self._rpc = JsonRpcHandler(
+            self._ws_transport, default_timeout=rpc_timeout
+        )
+        self._auth = AuthManager(self._http_transport)
+
+        self._reconnect_task: asyncio.Task[None] | None = None
+        self._connected = asyncio.Event()
+        self._closing = False
+
+    # -- Context manager --------------------------------------------------
+
+    async def __aenter__(self) -> MoonrakerClient:
+        await self.connect()
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        await self.disconnect()
+
+    # -- Connection lifecycle ---------------------------------------------
+
+    async def connect(self) -> None:
+        """Establish WebSocket and HTTP connections, identify, and start listeners."""
+        self._closing = False
+        await self._http_transport.connect()
+        await self._ws_transport.connect()
+
+        self._rpc.start(self._events.notification_queue)
+        self._events.start()
+
+        await self._identify()
+
+        self._connected.set()
+        logger.info("Connected to Moonraker at %s:%s", self._host, self._port)
+
+    async def disconnect(self) -> None:
+        """Gracefully shut down all connections and background tasks."""
+        self._closing = True
+        self._connected.clear()
+
+        if self._reconnect_task is not None:
+            self._reconnect_task.cancel()
+            try:
+                await self._reconnect_task
+            except asyncio.CancelledError:
+                pass
+            self._reconnect_task = None
+
+        await self._events.stop()
+        await self._rpc.stop()
+        await self._ws_transport.disconnect()
+        await self._http_transport.disconnect()
+        logger.info("Disconnected from Moonraker")
+
+    async def wait_connected(self, timeout: float | None = None) -> None:
+        """Block until the client is connected (useful after auto-reconnect)."""
+        await asyncio.wait_for(self._connected.wait(), timeout=timeout)
+
+    @property
+    def is_connected(self) -> bool:
+        """Return ``True`` if the WebSocket is currently connected."""
+        return self._ws_transport.connected
+
+    # -- Event registration -----------------------------------------------
+
+    def on(self, event: str | EventType, callback: Callback) -> Callable[[], None]:
+        """Register a callback for a Moonraker notification event.
+
+        Returns a callable to unsubscribe.
+        """
+        return self._events.on(str(event), callback)
+
+    def once(self, event: str | EventType, callback: Callback) -> None:
+        """Register a one-shot callback for *event*."""
+        self._events.once(str(event), callback)
+
+    # -- RPC convenience --------------------------------------------------
+
+    async def call(
+        self,
+        method: str,
+        params: dict[str, Any] | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> Any:
+        """Send a JSON-RPC request over WebSocket and return the result."""
+        return await self._rpc.call(method, params, timeout=timeout)
+
+    async def http_request(
+        self,
+        method: str,
+        path: str,
+        **kwargs: Any,
+    ) -> Any:
+        """Send an HTTP request via the HTTP transport."""
+        return await self._http_transport.request(method, path, **kwargs)
+
+    # -- Server / Printer info --------------------------------------------
+
+    async def server_info(self) -> ServerInfo:
+        """Query ``server.info`` and return a typed model."""
+        raw = await self.call("server.info")
+        return ServerInfo.model_validate(raw)
+
+    async def printer_info(self) -> PrinterInfo:
+        """Query ``printer.info`` and return a typed model."""
+        raw = await self.call("printer.info")
+        return PrinterInfo.model_validate(raw)
+
+    async def klippy_state(self) -> KlippyState:
+        """Return the current Klippy state."""
+        info = await self.server_info()
+        return info.klippy_state or KlippyState.STARTUP
+
+    # -- Printer objects --------------------------------------------------
+
+    async def query_objects(
+        self,
+        objects: dict[str, list[str] | None],
+    ) -> dict[str, Any]:
+        """Query one or more printer objects.
+
+        Example::
+
+            result = await client.query_objects({
+                "toolhead": ["position", "homed_axes"],
+                "heater_bed": None,  # all fields
+            })
+        """
+        return await self.call("printer.objects.query", {"objects": objects})
+
+    async def subscribe_objects(
+        self,
+        objects: dict[str, list[str] | None],
+    ) -> dict[str, Any]:
+        """Subscribe to printer object updates.
+
+        Updated values arrive as ``notify_status_update`` events.
+        """
+        return await self.call("printer.objects.subscribe", {"objects": objects})
+
+    # -- G-code -----------------------------------------------------------
+
+    async def gcode(self, script: str) -> str:
+        """Execute a G-code script and return the response."""
+        return await self.call("printer.gcode.script", {"script": script})
+
+    async def emergency_stop(self) -> None:
+        """Trigger an immediate emergency stop."""
+        await self.call("printer.emergency_stop")
+
+    # -- Print control ----------------------------------------------------
+
+    async def print_start(self, filename: str) -> None:
+        """Start printing the specified file."""
+        await self.call("printer.print.start", {"filename": filename})
+
+    async def print_pause(self) -> None:
+        """Pause the current print."""
+        await self.call("printer.print.pause")
+
+    async def print_resume(self) -> None:
+        """Resume the paused print."""
+        await self.call("printer.print.resume")
+
+    async def print_cancel(self) -> None:
+        """Cancel the current print."""
+        await self.call("printer.print.cancel")
+
+    # -- File operations (HTTP) -------------------------------------------
+
+    async def upload_file(
+        self,
+        file_path: str,
+        content: bytes,
+        *,
+        root: str = "gcodes",
+        target_path: str | None = None,
+    ) -> Any:
+        """Upload a file to Moonraker."""
+        return await self._http_transport.upload_file(
+            file_path, content, root=root, target_path=target_path
+        )
+
+    async def download_file(self, root: str, file_path: str) -> bytes:
+        """Download a file from Moonraker."""
+        return await self._http_transport.download_file(root, file_path)
+
+    # -- Restart / power --------------------------------------------------
+
+    async def restart_klipper(self) -> None:
+        """Soft-restart Klipper."""
+        await self.call("printer.restart")
+
+    async def firmware_restart(self) -> None:
+        """Restart Klipper with a firmware restart (MCU reset)."""
+        await self.call("printer.firmware_restart")
+
+    async def restart_moonraker(self) -> None:
+        """Restart the Moonraker server process."""
+        await self.call("server.restart")
+
+    # -- Auto-reconnect ---------------------------------------------------
+
+    def _schedule_reconnect(self) -> None:
+        """Spawn a background reconnection task if enabled."""
+        if not self._auto_reconnect or self._closing:
+            return
+        if self._reconnect_task is not None and not self._reconnect_task.done():
+            return
+        self._reconnect_task = asyncio.create_task(
+            self._reconnect_loop(), name="moonraker-reconnect"
+        )
+
+    async def _reconnect_loop(self) -> None:
+        delay = self._reconnect_interval
+        while not self._closing:
+            logger.info("Reconnecting in %.1fs…", delay)
+            await asyncio.sleep(delay)
+            try:
+                await self._ws_transport.connect()
+                self._rpc.start(self._events.notification_queue)
+                self._events.start()
+                await self._identify()
+                self._connected.set()
+                logger.info("Reconnected to Moonraker")
+                return
+            except MoonrakerConnectionError:
+                delay = min(delay * 2, self._max_reconnect_interval)
+                logger.warning("Reconnect failed; retrying in %.1fs", delay)
+
+    # -- Internal helpers -------------------------------------------------
+
+    async def _identify(self) -> ConnectionIdentifyResult:
+        """Send ``server.connection.identify`` per Moonraker protocol."""
+        raw = await self.call(
+            "server.connection.identify",
+            {
+                "client_name": _CLIENT_NAME,
+                "version": "0.1.0",
+                "type": _CLIENT_TYPE,
+                "url": "https://github.com/thewillft/pymoonraker",
+            },
+        )
+        return ConnectionIdentifyResult.model_validate(raw)
