@@ -3,19 +3,22 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import TYPE_CHECKING, Any, cast
 
 from pymoonraker.auth import AuthManager
 from pymoonraker.events import EventDispatcher
-from pymoonraker.events.types import EventType
 from pymoonraker.exceptions import MoonrakerConnectionError
 from pymoonraker.models.common import KlippyState
 from pymoonraker.models.server import ConnectionIdentifyResult, PrinterInfo, ServerInfo
 from pymoonraker.rpc import JsonRpcHandler
-from pymoonraker.rpc.types import RpcNotification
 from pymoonraker.transport.http import HttpTransport
 from pymoonraker.transport.websocket import WebSocketTransport
+
+if TYPE_CHECKING:
+    from pymoonraker.events.types import EventType
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +59,7 @@ class MoonrakerClient:
         max_reconnect_interval: float = 60.0,
         rpc_timeout: float = 30.0,
     ) -> None:
+        """Initialize transports, RPC handler, and reconnect settings."""
         scheme_ws = "wss" if ssl else "ws"
         scheme_http = "https" if ssl else "http"
 
@@ -76,9 +80,7 @@ class MoonrakerClient:
         )
 
         self._events = EventDispatcher()
-        self._rpc = JsonRpcHandler(
-            self._ws_transport, default_timeout=rpc_timeout
-        )
+        self._rpc = JsonRpcHandler(self._ws_transport, default_timeout=rpc_timeout)
         self._auth = AuthManager(self._http_transport)
 
         self._reconnect_task: asyncio.Task[None] | None = None
@@ -88,10 +90,12 @@ class MoonrakerClient:
     # -- Context manager --------------------------------------------------
 
     async def __aenter__(self) -> MoonrakerClient:
+        """Connect and return ``self`` for async context-manager usage."""
         await self.connect()
         return self
 
     async def __aexit__(self, *exc: object) -> None:
+        """Disconnect when exiting an async context manager."""
         await self.disconnect()
 
     # -- Connection lifecycle ---------------------------------------------
@@ -117,10 +121,8 @@ class MoonrakerClient:
 
         if self._reconnect_task is not None:
             self._reconnect_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._reconnect_task
-            except asyncio.CancelledError:
-                pass
             self._reconnect_task = None
 
         await self._events.stop()
@@ -187,7 +189,10 @@ class MoonrakerClient:
     async def klippy_state(self) -> KlippyState:
         """Return the current Klippy state."""
         info = await self.server_info()
-        return info.klippy_state or KlippyState.STARTUP
+        state = info.klippy_state
+        if state is None:
+            return KlippyState.STARTUP
+        return state
 
     # -- Printer objects --------------------------------------------------
 
@@ -204,7 +209,9 @@ class MoonrakerClient:
                 "heater_bed": None,  # all fields
             })
         """
-        return await self.call("printer.objects.query", {"objects": objects})
+        return cast(
+            "dict[str, Any]", await self.call("printer.objects.query", {"objects": objects})
+        )
 
     async def subscribe_objects(
         self,
@@ -214,13 +221,15 @@ class MoonrakerClient:
 
         Updated values arrive as ``notify_status_update`` events.
         """
-        return await self.call("printer.objects.subscribe", {"objects": objects})
+        return cast(
+            "dict[str, Any]", await self.call("printer.objects.subscribe", {"objects": objects})
+        )
 
     # -- G-code -----------------------------------------------------------
 
     async def gcode(self, script: str) -> str:
         """Execute a G-code script and return the response."""
-        return await self.call("printer.gcode.script", {"script": script})
+        return cast("str", await self.call("printer.gcode.script", {"script": script}))
 
     async def emergency_stop(self) -> None:
         """Trigger an immediate emergency stop."""

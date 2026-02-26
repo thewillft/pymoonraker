@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
-
+from pymoonraker._compat import StrEnum
 from pymoonraker.models.common import MoonrakerBaseModel
 
 
@@ -59,6 +58,8 @@ class HistoryJob(MoonrakerBaseModel):
     status: str | None = None
     start_time: float | None = None
     total_duration: float | None = None
+    user: str | None = None
+    auxiliary_data: list[HistoryAuxiliaryField] | None = None
 
 
 class HistoryTotals(MoonrakerBaseModel):
@@ -70,3 +71,32 @@ class HistoryTotals(MoonrakerBaseModel):
     total_filament_used: float | None = None
     longest_job: float | None = None
     longest_print: float | None = None
+
+
+class HistoryAuxiliaryField(MoonrakerBaseModel):
+    """Supplemental job metric from the history component."""
+
+    provider: str | None = None
+    name: str | None = None
+    description: str | None = None
+    value: object | None = None
+    units: str | None = None
+
+
+class HistoryListResponse(MoonrakerBaseModel):
+    """Response from ``server.history.list``."""
+
+    count: int | None = None
+    jobs: list[HistoryJob] | None = None
+
+
+class HistoryJobResponse(MoonrakerBaseModel):
+    """Response from ``server.history.get_job``."""
+
+    job: HistoryJob | None = None
+
+
+class HistoryDeleteResponse(MoonrakerBaseModel):
+    """Response from ``server.history.delete_job``."""
+
+    deleted_jobs: list[str] | None = None

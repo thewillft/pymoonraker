@@ -26,9 +26,11 @@ class MoonrakerRPCError(MoonrakerError):
         code: The JSON-RPC error code.
         message: The human-readable error message.
         data: Optional additional error data from the server.
+
     """
 
     def __init__(self, code: int, message: str, data: object = None) -> None:
+        """Capture JSON-RPC error fields for callers and debuggers."""
         self.code = code
         self.message = message
         self.data = data
@@ -39,5 +41,6 @@ class MoonrakerAPIError(MoonrakerError):
     """Raised when an HTTP API call returns a non-success status."""
 
     def __init__(self, status_code: int, message: str) -> None:
+        """Store HTTP status context for failed API requests."""
         self.status_code = status_code
         super().__init__(f"HTTP {status_code}: {message}")

@@ -21,6 +21,7 @@
 - **File operations** — upload/download G-code files via HTTP transport
 - **Authentication** — API key, JWT bearer tokens, and oneshot token support
 - **`py.typed`** — PEP 561 compatible, works with mypy and pyright
+- **AI-agent friendly** — [AGENTS.md](AGENTS.md) gives AI coding agents (Cursor, Copilot, etc.) a concise usage guide so they can use the SDK correctly
 
 ## Installation
 
@@ -177,6 +178,16 @@ schema/
 scripts/
 └── generate_bindings.py   # YAML → Python code generator
 ```
+
+## Using with AI agents
+
+pymoonraker is designed so that AI coding assistants (Cursor, GitHub Copilot, Claude Code, etc.) can use it reliably:
+
+- **[AGENTS.md](AGENTS.md)** — A short guide written for agents: entry points, namespaces, events, lifecycle, and common patterns. If you are building an app with an AI agent, you can:
+  - Add AGENTS.md to your repo (e.g. as a copied or linked reference), or
+  - Point the agent at the pymoonraker repo/source and say e.g. “Use the pymoonraker SDK per AGENTS.md”.
+- **Strict typing** — All public APIs are fully typed (Pydantic models, type hints), so agents get accurate completions and fewer mistakes.
+- **Stable surface** — Public API is `MoonrakerClient`, `SyncMoonrakerClient`, namespaces under `pymoonraker.api`, `EventType` and events; agents can rely on these names.
 
 ## YAML Schema & Code Generation
 

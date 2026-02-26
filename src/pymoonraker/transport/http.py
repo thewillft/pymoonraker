@@ -42,6 +42,7 @@ class HttpTransport(BaseTransport):
         timeout: float = _DEFAULT_TIMEOUT,
         ssl_context: Any = None,
     ) -> None:
+        """Store connection settings used to build the HTTP client lazily."""
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._timeout = timeout
@@ -101,6 +102,7 @@ class HttpTransport(BaseTransport):
             MoonrakerTimeoutError: When the request exceeds the timeout.
             MoonrakerAuthError: On 401/403 responses.
             MoonrakerAPIError: On any other non-2xx response.
+
         """
         client = self._ensure_client()
         try:

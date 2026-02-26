@@ -80,3 +80,35 @@ class FileListResponse(MoonrakerBaseModel):
     items: list[FileItem] | None = None
     root_info: FileRoot | None = None
     disk_usage: DiskUsage | None = None
+
+
+class FileActionItem(MoonrakerBaseModel):
+    """Common file/directory item details from file-manager write APIs."""
+
+    path: str | None = None
+    root: str | None = None
+    modified: float | None = None
+    size: int | None = None
+    permissions: str | None = None
+
+
+class FileActionResponse(MoonrakerBaseModel):
+    """Response for create/delete/copy file-manager actions."""
+
+    item: FileActionItem | None = None
+    action: str | None = None
+
+
+class FileMoveSourceItem(MoonrakerBaseModel):
+    """Source item metadata for move operations."""
+
+    root: str | None = None
+    path: str | None = None
+
+
+class FileMoveResponse(MoonrakerBaseModel):
+    """Response from ``server.files.move``."""
+
+    item: FileActionItem | None = None
+    source_item: FileMoveSourceItem | None = None
+    action: str | None = None

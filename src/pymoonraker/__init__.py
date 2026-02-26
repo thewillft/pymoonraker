@@ -13,8 +13,8 @@ from pymoonraker.exceptions import (
 from pymoonraker.sync_client import SyncMoonrakerClient
 
 __all__ = [
-    "MoonrakerClient",
     "MoonrakerAuthError",
+    "MoonrakerClient",
     "MoonrakerConnectionError",
     "MoonrakerError",
     "MoonrakerRPCError",

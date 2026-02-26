@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING
 
-from pymoonraker.transport.http import HttpTransport
+if TYPE_CHECKING:
+    from pymoonraker.transport.http import HttpTransport
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,7 @@ class TokenSet:
     @property
     def is_expired(self) -> bool:
         """Return ``True`` if the access token has likely expired."""
-        return time.time() > (
-            self.issued_at + self.expires_in - _TOKEN_REFRESH_BUFFER_SECONDS
-        )
+        return time.time() > (self.issued_at + self.expires_in - _TOKEN_REFRESH_BUFFER_SECONDS)
 
 
 class AuthManager:
@@ -44,6 +43,7 @@ class AuthManager:
     """
 
     def __init__(self, http: HttpTransport) -> None:
+        """Bind the manager to an HTTP transport and clear cached tokens."""
         self._http = http
         self._tokens: TokenSet | None = None
 

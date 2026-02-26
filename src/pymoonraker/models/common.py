@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
-
 from pydantic import BaseModel
+
+from pymoonraker._compat import StrEnum
 
 
 class KlippyState(StrEnum):

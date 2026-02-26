@@ -1,12 +1,9 @@
 """Tests for the event dispatch system."""
 
-import asyncio
-
 import pytest
 
 from pymoonraker.events.dispatcher import EventDispatcher
 from pymoonraker.events.types import EventType
-from pymoonraker.rpc.types import RpcNotification
 
 
 class TestEventType:

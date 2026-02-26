@@ -1,17 +1,16 @@
 """Tests for Pydantic model parsing."""
 
-from pymoonraker.models.common import KlippyState, PrinterObjectList
+from pymoonraker.models.common import KlippyState
+from pymoonraker.models.files import FileItem, FileMetadata, FileRoot
+from pymoonraker.models.job import JobQueueStatus, PrintState, PrintStats, QueuedJob
 from pymoonraker.models.printer import (
     Extruder,
     HeaterBed,
     Toolhead,
-    VirtualSdcard,
     Webhooks,
     WebhookState,
 )
-from pymoonraker.models.server import ServerInfo, PrinterInfo
-from pymoonraker.models.job import PrintStats, PrintState, JobQueueStatus, QueuedJob
-from pymoonraker.models.files import FileItem, FileMetadata, FileRoot
+from pymoonraker.models.server import ServerInfo
 
 
 class TestKlippyState:
@@ -59,12 +58,14 @@ class TestHeaters:
         assert hb.target == 60.0
 
     def test_extruder(self):
-        e = Extruder.model_validate({
-            "temperature": 215.0,
-            "target": 215.0,
-            "power": 0.8,
-            "can_extrude": True,
-        })
+        e = Extruder.model_validate(
+            {
+                "temperature": 215.0,
+                "target": 215.0,
+                "power": 0.8,
+                "can_extrude": True,
+            }
+        )
         assert e.can_extrude is True
 
 
@@ -97,7 +98,9 @@ class TestPrintStats:
 
 class TestFileModels:
     def test_file_item(self):
-        fi = FileItem.model_validate({"path": "test.gcode", "size": 1024, "modified": 1700000000.0})
+        fi = FileItem.model_validate(
+            {"path": "test.gcode", "size": 1024, "modified": 1700000000.0}
+        )
         assert fi.path == "test.gcode"
 
     def test_file_root(self):
@@ -116,8 +119,10 @@ class TestJobQueue:
         assert qj.job_id == "abc123"
 
     def test_queue_status(self):
-        qs = JobQueueStatus.model_validate({
-            "queued_jobs": [{"filename": "a.gcode", "job_id": "1"}],
-            "queue_state": "ready",
-        })
+        qs = JobQueueStatus.model_validate(
+            {
+                "queued_jobs": [{"filename": "a.gcode", "job_id": "1"}],
+                "queue_state": "ready",
+            }
+        )
         assert len(qs.queued_jobs or []) == 1

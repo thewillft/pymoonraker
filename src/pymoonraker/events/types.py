@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
+from pymoonraker._compat import StrEnum
 
 
 class EventType(StrEnum):

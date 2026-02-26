@@ -115,7 +115,7 @@ namespaces:
             description: >-
               Mapping of object name to list of fields (or None for all fields)
         returns:
-          type: dict[str, Any]
+          type: PrinterObjectsStatusResponse
           description: Object status data
 
       objects_subscribe:
@@ -129,7 +129,7 @@ namespaces:
             required: true
             description: Objects and fields to subscribe to
         returns:
-          type: dict[str, Any]
+          type: PrinterObjectsStatusResponse
           description: Current status of subscribed objects
 
       print_start:
@@ -195,7 +195,7 @@ namespaces:
         http_path: /server/config
         description: Get the full Moonraker configuration
         returns:
-          type: dict[str, Any]
+          type: ServerConfigResponse
           description: Complete Moonraker configuration
 
       temperature_store:
@@ -209,7 +209,7 @@ namespaces:
             required: false
             description: Include temperature monitors in the response
         returns:
-          type: dict[str, Any]
+          type: TemperatureStoreResponse
           description: Temperature history data
 
       gcode_store:
@@ -223,7 +223,7 @@ namespaces:
             description: Number of responses to return
         description: Get cached G-code console responses
         returns:
-          type: dict[str, Any]
+          type: GcodeStoreResponse
           description: Cached G-code responses
 
       restart:
@@ -317,7 +317,7 @@ namespaces:
             required: true
             description: Directory path to create
         returns:
-          type: dict[str, Any]
+          type: FileActionResponse
           description: Created directory info
 
       delete_directory:
@@ -335,7 +335,7 @@ namespaces:
             required: false
             description: Force delete non-empty directory
         returns:
-          type: dict[str, Any]
+          type: FileActionResponse
           description: Deleted directory info
 
       move:
@@ -353,7 +353,7 @@ namespaces:
             required: true
             description: Destination path
         returns:
-          type: dict[str, Any]
+          type: FileMoveResponse
           description: Move result
 
       copy:
@@ -371,7 +371,7 @@ namespaces:
             required: true
             description: Destination path
         returns:
-          type: dict[str, Any]
+          type: FileActionResponse
           description: Copy result
 
       delete_file:
@@ -389,7 +389,7 @@ namespaces:
             required: true
             description: File path relative to root
         returns:
-          type: dict[str, Any]
+          type: FileActionResponse
           description: Deletion result
 
   # ---------------------------------------------------------------------------
@@ -488,7 +488,7 @@ namespaces:
             required: false
             description: "Sort order: asc or desc"
         returns:
-          type: dict[str, Any]
+          type: HistoryListResponse
           description: Paginated list of history jobs
 
       totals:
@@ -511,7 +511,7 @@ namespaces:
             required: true
             description: Job ID
         returns:
-          type: HistoryJob
+          type: HistoryJobResponse
           description: Full job details
 
       delete_job:
@@ -525,7 +525,7 @@ namespaces:
             required: true
             description: Job ID to delete
         returns:
-          type: list[str]
+          type: HistoryDeleteResponse
           description: List of deleted job IDs
 
   # ---------------------------------------------------------------------------
@@ -541,7 +541,7 @@ namespaces:
         http_path: /machine/system_info
         description: Get host system information (CPU, distro, network)
         returns:
-          type: dict[str, Any]
+          type: MachineSystemInfoResponse
           description: System information
 
       shutdown:
@@ -568,7 +568,7 @@ namespaces:
         http_path: /machine/proc_stats
         description: Get process statistics for Moonraker and system
         returns:
-          type: dict[str, Any]
+          type: MachineProcStatsResponse
           description: Process and system statistics
 
       restart_service:
@@ -631,7 +631,7 @@ namespaces:
             required: false
             description: Refresh update state from remote
         returns:
-          type: dict[str, Any]
+          type: UpdateManagerStatusResponse
           description: Version info and update availability
 
       refresh:
@@ -640,7 +640,7 @@ namespaces:
         http_path: /machine/update/refresh
         description: Force refresh of update state from remote
         returns:
-          type: dict[str, Any]
+          type: UpdateManagerStatusResponse
           description: Refreshed version info
 
   # ---------------------------------------------------------------------------
@@ -656,7 +656,7 @@ namespaces:
         http_path: /machine/device_power/devices
         description: List all configured power devices
         returns:
-          type: dict[str, Any]
+          type: PowerDevicesResponse
           description: Power device list
 
       get_device:
@@ -713,7 +713,7 @@ namespaces:
             required: true
             description: Password
         returns:
-          type: dict[str, Any]
+          type: AccessLoginResponse
           description: JWT token and refresh token
 
       logout:
@@ -722,7 +722,7 @@ namespaces:
         http_path: /access/logout
         description: Invalidate current session
         returns:
-          type: dict[str, Any]
+          type: AccessLogoutResponse
           description: Logout confirmation
 
       get_user:
@@ -731,7 +731,7 @@ namespaces:
         http_path: /access/user
         description: Get current authenticated user info
         returns:
-          type: dict[str, Any]
+          type: AccessUserInfo
           description: User information
 
       list_users:
@@ -740,7 +740,7 @@ namespaces:
         http_path: /access/users/list
         description: List all registered users
         returns:
-          type: dict[str, Any]
+          type: AccessUsersListResponse
           description: User list
 
       refresh_jwt:
@@ -754,7 +754,7 @@ namespaces:
             required: true
             description: Refresh token from login
         returns:
-          type: dict[str, Any]
+          type: AccessRefreshJwtResponse
           description: New access token
 
       get_api_key:
@@ -788,7 +788,7 @@ namespaces:
         http_path: /server/database/list
         description: List all database namespaces
         returns:
-          type: dict[str, Any]
+          type: DatabaseListResponse
           description: List of namespaces
 
       get_item:
@@ -806,7 +806,7 @@ namespaces:
             required: false
             description: Key to retrieve (omit for full namespace)
         returns:
-          type: Any
+          type: DatabaseItemResponse
           description: Stored value
 
       post_item:
@@ -828,7 +828,7 @@ namespaces:
             required: true
             description: Value to store
         returns:
-          type: dict[str, Any]
+          type: DatabaseItemResponse
           description: Confirmation with stored key
 
       delete_item:
@@ -846,7 +846,7 @@ namespaces:
             required: true
             description: Key to delete
         returns:
-          type: dict[str, Any]
+          type: DatabaseItemResponse
           description: Deleted key confirmation
 
   # ---------------------------------------------------------------------------
@@ -867,7 +867,7 @@ namespaces:
             required: false
             description: Include dismissed announcements
         returns:
-          type: dict[str, Any]
+          type: AnnouncementsListResponse
           description: Announcement entries
 
       dismiss:
@@ -881,7 +881,7 @@ namespaces:
             required: true
             description: Announcement entry ID
         returns:
-          type: dict[str, Any]
+          type: AnnouncementDismissResponse
           description: Dismissal confirmation
 
   # ---------------------------------------------------------------------------
@@ -897,7 +897,7 @@ namespaces:
         http_path: /server/webcams/list
         description: List configured webcams
         returns:
-          type: dict[str, Any]
+          type: WebcamsListResponse
           description: Webcam configurations
 
       get:
@@ -911,5 +911,5 @@ namespaces:
             required: true
             description: Webcam name
         returns:
-          type: dict[str, Any]
+          type: WebcamGetResponse
           description: Webcam configuration

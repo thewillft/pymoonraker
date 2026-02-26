@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import Any
@@ -35,6 +34,7 @@ class WebSocketTransport(BaseTransport):
         close_timeout: float = _DEFAULT_CLOSE_TIMEOUT,
         ssl: Any = None,
     ) -> None:
+        """Capture WebSocket connection parameters and optional shared session."""
         self._url = url
         self._external_session = session is not None
         self._session = session
@@ -57,9 +57,7 @@ class WebSocketTransport(BaseTransport):
             )
             logger.info("WebSocket connected to %s", self._url)
         except (aiohttp.ClientError, OSError) as exc:
-            raise MoonrakerConnectionError(
-                f"Failed to connect to {self._url}: {exc}"
-            ) from exc
+            raise MoonrakerConnectionError(f"Failed to connect to {self._url}: {exc}") from exc
 
     async def disconnect(self) -> None:
         """Close the WebSocket and, if we own the session, the session too."""

@@ -9,12 +9,18 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from pymoonraker.client import Callback, MoonrakerClient
-from pymoonraker.events.types import EventType
-from pymoonraker.models.common import KlippyState
-from pymoonraker.models.server import PrinterInfo, ServerInfo
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    from pymoonraker.events.types import EventType
+    from pymoonraker.models.common import KlippyState
+    from pymoonraker.models.server import PrinterInfo, ServerInfo
+
+T = TypeVar("T")
 
 
 class SyncMoonrakerClient:
@@ -31,6 +37,7 @@ class SyncMoonrakerClient:
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Store client construction arguments for deferred connection."""
         self._args = args
         self._kwargs = kwargs
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -40,10 +47,12 @@ class SyncMoonrakerClient:
     # -- Context manager --------------------------------------------------
 
     def __enter__(self) -> SyncMoonrakerClient:
+        """Connect and return ``self`` for context-manager usage."""
         self.connect()
         return self
 
     def __exit__(self, *exc: object) -> None:
+        """Disconnect when leaving the context manager."""
         self.disconnect()
 
     # -- Lifecycle --------------------------------------------------------
@@ -147,7 +156,7 @@ class SyncMoonrakerClient:
         """Subscribe to printer object updates."""
         return self._run(self._ensure_client().subscribe_objects(objects))
 
-    def on(self, event: str | EventType, callback: Callback) -> Any:
+    def on(self, event: str | EventType, callback: Callback) -> Callable[[], None]:
         """Register an event callback."""
         return self._ensure_client().on(event, callback)
 
@@ -162,7 +171,7 @@ class SyncMoonrakerClient:
             raise RuntimeError("Client is not connected; call connect() first")
         return self._client
 
-    def _run(self, coro: Any) -> Any:
+    def _run(self, coro: Coroutine[Any, Any, T]) -> T:
         if self._loop is None:
             raise RuntimeError("Event loop not running; call connect() first")
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)

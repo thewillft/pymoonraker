@@ -1,0 +1,23 @@
+---
+description: General Klipper and Moonraker context for work in this repository
+alwaysApply: true
+---
+
+# Klipper and Moonraker Context
+
+## Core concepts
+
+- **Klipper** is 3D printer firmware that pairs a host computer with one or more microcontrollers to control printer hardware.
+- **Moonraker** is a Python 3 web server that exposes external APIs for interacting with Klipper and printer state.
+- In practice, Klipper handles low-level printer control, while Moonraker provides API access for clients, dashboards, and automation.
+
+## Project relevance
+
+- `pymoonraker` is a client SDK for the **Moonraker API**, not a Klipper firmware implementation.
+- Prefer Moonraker API terminology (endpoints, JSON-RPC methods, notifications, printer objects) when describing behavior.
+- When uncertain about protocol/API behavior, align with Moonraker docs before changing client behavior.
+
+## Docs
+
+- Klipper documentation: https://www.klipper3d.org/
+- Moonraker documentation: https://moonraker.readthedocs.io/en/latest/

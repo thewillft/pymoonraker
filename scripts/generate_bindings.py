@@ -12,7 +12,7 @@ Usage::
 
 from __future__ import annotations
 
-import textwrap
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -31,7 +31,10 @@ from schema/moonraker_api.yaml.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import builtins  # noqa: TC003
+from typing import TYPE_CHECKING, Any, cast
+
+{model_imports}
 
 if TYPE_CHECKING:
     from pymoonraker.client import MoonrakerClient
@@ -43,30 +46,104 @@ TYPE_MAP: dict[str, str] = {
     "float": "float",
     "bool": "bool",
     "Any": "Any",
-    "list[str]": "list[str]",
-    "dict[str, Any]": "dict[str, Any]",
-    "dict[str, str]": "dict[str, str]",
-    "dict[str, list[str] | None]": "dict[str, list[str] | None]",
-    "list[FileItem]": "list[dict[str, Any]]",
-    "list[FileRoot]": "list[dict[str, Any]]",
+    "list[str]": "builtins.list[str]",
+    "dict[str, Any]": "builtins.dict[str, Any]",
+    "dict[str, str]": "builtins.dict[str, str]",
+    "dict[str, list[str] | None]": "builtins.dict[str, builtins.list[str] | None]",
 }
 
-KNOWN_MODELS = {
-    "PrinterInfo",
-    "ServerInfo",
-    "ConnectionIdentifyResult",
-    "PrinterObjectList",
-    "JobQueueStatus",
-    "FileMetadata",
-    "HistoryJob",
-    "HistoryTotals",
+MODEL_IMPORTS: dict[str, str] = {
+    "AccessLoginResponse": "pymoonraker.models.access",
+    "AccessLogoutResponse": "pymoonraker.models.access",
+    "AccessRefreshJwtResponse": "pymoonraker.models.access",
+    "AccessUserInfo": "pymoonraker.models.access",
+    "AccessUsersListResponse": "pymoonraker.models.access",
+    "AnnouncementDismissResponse": "pymoonraker.models.announcements",
+    "AnnouncementsListResponse": "pymoonraker.models.announcements",
+    "ConnectionIdentifyResult": "pymoonraker.models.server",
+    "DatabaseItemResponse": "pymoonraker.models.database",
+    "DatabaseListResponse": "pymoonraker.models.database",
+    "FileActionResponse": "pymoonraker.models.files",
+    "FileItem": "pymoonraker.models.files",
+    "FileMetadata": "pymoonraker.models.files",
+    "FileMoveResponse": "pymoonraker.models.files",
+    "FileRoot": "pymoonraker.models.files",
+    "GcodeStoreResponse": "pymoonraker.models.server",
+    "HistoryDeleteResponse": "pymoonraker.models.job",
+    "HistoryJob": "pymoonraker.models.job",
+    "HistoryJobResponse": "pymoonraker.models.job",
+    "HistoryListResponse": "pymoonraker.models.job",
+    "HistoryTotals": "pymoonraker.models.job",
+    "JobQueueStatus": "pymoonraker.models.job",
+    "MachineProcStatsResponse": "pymoonraker.models.machine",
+    "MachineSystemInfoResponse": "pymoonraker.models.machine",
+    "PowerDevicesResponse": "pymoonraker.models.devices",
+    "PrinterInfo": "pymoonraker.models.server",
+    "PrinterObjectsStatusResponse": "pymoonraker.models.printer",
+    "PrinterObjectList": "pymoonraker.models.common",
+    "ServerInfo": "pymoonraker.models.server",
+    "ServerConfigResponse": "pymoonraker.models.server",
+    "TemperatureStoreResponse": "pymoonraker.models.server",
+    "UpdateManagerStatusResponse": "pymoonraker.models.update_manager",
+    "WebcamGetResponse": "pymoonraker.models.webcams",
+    "WebcamsListResponse": "pymoonraker.models.webcams",
 }
 
 
 def python_type(yaml_type: str) -> str:
-    if yaml_type in KNOWN_MODELS:
-        return "Any"
-    return TYPE_MAP.get(yaml_type, "Any")
+    if yaml_type in MODEL_IMPORTS:
+        return yaml_type
+    if yaml_type.startswith("list[") and yaml_type.endswith("]"):
+        inner = yaml_type[5:-1].strip()
+        if inner in MODEL_IMPORTS:
+            return f"builtins.list[{inner}]"
+    if yaml_type in TYPE_MAP:
+        return TYPE_MAP[yaml_type]
+    if re.search(r"\b(?:list|dict)\[", yaml_type):
+        normalized = re.sub(r"\blist\[", "builtins.list[", yaml_type)
+        return re.sub(r"\bdict\[", "builtins.dict[", normalized)
+    return "Any"
+
+
+def ensure_terminal_punctuation(text: str) -> str:
+    value = text.strip()
+    if not value:
+        return "No description provided."
+    if value[-1] in ".!?":
+        return value
+    return f"{value}."
+
+
+def model_for_type(yaml_type: str) -> str | None:
+    if yaml_type in MODEL_IMPORTS:
+        return yaml_type
+    return None
+
+
+def model_list_for_type(yaml_type: str) -> str | None:
+    if yaml_type.startswith("list[") and yaml_type.endswith("]"):
+        inner = yaml_type[5:-1].strip()
+        if inner in MODEL_IMPORTS:
+            return inner
+    return None
+
+
+def required_model_imports(schema: dict[str, dict]) -> dict[str, list[str]]:
+    module_to_models: dict[str, set[str]] = {}
+    for ns_def in schema.values():
+        for method_def in ns_def.get("methods", {}).values():
+            return_type = method_def.get("returns", {}).get("type", "Any")
+            param_defs = method_def.get("params", {}).values()
+            for type_name in [return_type, *[p.get("type", "Any") for p in param_defs]]:
+                direct_model = model_for_type(type_name)
+                if direct_model is not None:
+                    module = MODEL_IMPORTS[direct_model]
+                    module_to_models.setdefault(module, set()).add(direct_model)
+                list_model = model_list_for_type(type_name)
+                if list_model is not None:
+                    module = MODEL_IMPORTS[list_model]
+                    module_to_models.setdefault(module, set()).add(list_model)
+    return {module: sorted(models) for module, models in sorted(module_to_models.items())}
 
 
 def snake_to_class(name: str) -> str:
@@ -75,9 +152,10 @@ def snake_to_class(name: str) -> str:
 
 def generate_method(method_key: str, method_def: dict) -> str:
     rpc_method = method_def["rpc_method"]
-    description = method_def.get("description", "")
+    description = ensure_terminal_punctuation(method_def.get("description", ""))
     params = method_def.get("params", {})
-    return_type = python_type(method_def.get("returns", {}).get("type", "Any"))
+    return_yaml_type = method_def.get("returns", {}).get("type", "Any")
+    return_type = python_type(return_yaml_type)
 
     sig_parts: list[str] = ["self"]
     body_params: list[str] = []
@@ -99,16 +177,24 @@ def generate_method(method_key: str, method_def: dict) -> str:
             body_params.append(pname)
             doc_params.append(f"            {pname}: {pdef.get('description', '')}")
 
-    sig = ", ".join(sig_parts)
-
     lines: list[str] = []
-    lines.append(f"    async def {method_key}({sig}) -> {return_type}:")
-    lines.append(f'        """{description}')
+    signature = f"    async def {method_key}({', '.join(sig_parts)}) -> {return_type}:"
+    if len(signature) > 99 and len(sig_parts) > 1:
+        lines.append(f"    async def {method_key}(")
+        for part in sig_parts:
+            lines.append(f"        {part},")
+        lines.append(f"    ) -> {return_type}:")
+    else:
+        lines.append(signature)
     if doc_params:
+        lines.append(f'        """{description}')
         lines.append("")
         lines.append("        Args:")
         lines.extend(doc_params)
-    lines.append('        """')
+        lines.append("")
+        lines.append('        """')
+    else:
+        lines.append(f'        """{description}"""')
 
     if body_params:
         lines.append("        params: dict[str, Any] = {}")
@@ -118,16 +204,30 @@ def generate_method(method_key: str, method_def: dict) -> str:
             else:
                 lines.append(f"        if {pname} is not None:")
                 lines.append(f'            params["{pname}"] = {pname}')
-        lines.append(f'        return await self._client.call("{rpc_method}", params)')
+        call_expr = f'await self._client.call("{rpc_method}", params)'
     else:
-        lines.append(f'        return await self._client.call("{rpc_method}")')
+        call_expr = f'await self._client.call("{rpc_method}")'
+
+    model_name = model_for_type(return_yaml_type)
+    model_list_name = model_list_for_type(return_yaml_type)
+    if model_name is not None:
+        lines.append(f"        raw = {call_expr}")
+        lines.append(f"        return {model_name}.model_validate(raw)")
+    elif model_list_name is not None:
+        lines.append(f"        raw = {call_expr}")
+        lines.append(f"        return [{model_list_name}.model_validate(item) for item in raw]")
+    elif return_type == "Any":
+        lines.append(f"        return {call_expr}")
+    else:
+        lines.append(f"        raw = {call_expr}")
+        lines.append(f'        return cast("{return_type}", raw)')
 
     return "\n".join(lines)
 
 
 def generate_namespace(ns_name: str, ns_def: dict) -> str:
     class_name = snake_to_class(ns_name)
-    description = ns_def.get("description", "")
+    description = ensure_terminal_punctuation(ns_def.get("description", ""))
     methods = ns_def.get("methods", {})
 
     lines: list[str] = []
@@ -156,7 +256,19 @@ def main() -> None:
     namespaces = schema.get("namespaces", {})
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    output = HEADER.format(timestamp=timestamp)
+    model_import_lines: list[str] = []
+    for module, models in required_model_imports(namespaces).items():
+        imports = ", ".join(models)
+        single_line = f"from {module} import {imports}"
+        if len(single_line) <= 99:
+            model_import_lines.append(single_line)
+            continue
+        model_import_lines.append(f"from {module} import (")
+        for model in models:
+            model_import_lines.append(f"    {model},")
+        model_import_lines.append(")")
+    model_import_block = "\n".join(model_import_lines)
+    output = HEADER.format(timestamp=timestamp, model_imports=model_import_block)
 
     for ns_name, ns_def in namespaces.items():
         output += generate_namespace(ns_name, ns_def)

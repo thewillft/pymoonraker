@@ -6,12 +6,10 @@ and pushed via ``notify_status_update`` subscriptions.
 
 from __future__ import annotations
 
-from enum import StrEnum
+from typing import Any
 
-from pydantic import Field
-
+from pymoonraker._compat import StrEnum
 from pymoonraker.models.common import MoonrakerBaseModel
-
 
 # -- webhooks ------------------------------------------------------------------
 
@@ -184,3 +182,10 @@ class PauseResume(MoonrakerBaseModel):
     """Pause/resume state."""
 
     is_paused: bool | None = None
+
+
+class PrinterObjectsStatusResponse(MoonrakerBaseModel):
+    """Response from ``printer.objects.query`` and ``printer.objects.subscribe``."""
+
+    eventtime: float | None = None
+    status: dict[str, Any] | None = None

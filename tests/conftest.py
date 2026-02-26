@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, AsyncGenerator
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
 from pymoonraker.client import MoonrakerClient
-from pymoonraker.rpc.types import RpcNotification, RpcResponse
 from pymoonraker.transport.http import HttpTransport
 from pymoonraker.transport.websocket import WebSocketTransport
 

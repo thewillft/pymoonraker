@@ -1,6 +1,6 @@
 """Tests for JSON-RPC type serialisation."""
 
-from pymoonraker.rpc.types import RpcRequest, RpcResponse, RpcError, RpcNotification
+from pymoonraker.rpc.types import RpcError, RpcNotification, RpcRequest, RpcResponse
 
 
 class TestRpcRequest:

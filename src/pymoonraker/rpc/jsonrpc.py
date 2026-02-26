@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import itertools
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pymoonraker.exceptions import MoonrakerConnectionError, MoonrakerRPCError
 from pymoonraker.rpc.types import RpcError, RpcNotification, RpcRequest, RpcResponse
-from pymoonraker.transport.websocket import WebSocketTransport
+
+if TYPE_CHECKING:
+    from pymoonraker.transport.websocket import WebSocketTransport
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +32,12 @@ class JsonRpcHandler:
         *,
         default_timeout: float = 30.0,
     ) -> None:
+        """Initialize handler state for request tracking and notifications."""
         self._transport = transport
         self._default_timeout = default_timeout
         self._id_counter = itertools.count(1)
         self._pending: dict[int, asyncio.Future[RpcResponse]] = {}
-        self._notification_callback: (
-            asyncio.Queue[RpcNotification] | None
-        ) = None
+        self._notification_callback: asyncio.Queue[RpcNotification] | None = None
         self._reader_task: asyncio.Task[None] | None = None
 
     # -- Lifecycle --------------------------------------------------------
@@ -47,18 +49,14 @@ class JsonRpcHandler:
         dispatcher to consume.
         """
         self._notification_callback = notification_queue
-        self._reader_task = asyncio.create_task(
-            self._read_loop(), name="jsonrpc-reader"
-        )
+        self._reader_task = asyncio.create_task(self._read_loop(), name="jsonrpc-reader")
 
     async def stop(self) -> None:
         """Cancel the reader task and reject all pending futures."""
         if self._reader_task is not None:
             self._reader_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._reader_task
-            except asyncio.CancelledError:
-                pass
             self._reader_task = None
         for fut in self._pending.values():
             if not fut.done():
@@ -84,6 +82,7 @@ class JsonRpcHandler:
         Raises:
             MoonrakerRPCError: If the server returns an error response.
             MoonrakerTimeoutError: If no response arrives within *timeout*.
+
         """
         req_id = next(self._id_counter)
         request = RpcRequest(method=method, params=params, id=req_id)
@@ -94,9 +93,7 @@ class JsonRpcHandler:
 
         try:
             await self._transport.send(request.to_dict())
-            resp = await asyncio.wait_for(
-                future, timeout=timeout or self._default_timeout
-            )
+            resp = await asyncio.wait_for(future, timeout=timeout or self._default_timeout)
         except asyncio.TimeoutError:
             self._pending.pop(req_id, None)
             raise
@@ -170,6 +167,4 @@ class JsonRpcHandler:
             try:
                 self._notification_callback.put_nowait(notification)
             except asyncio.QueueFull:
-                logger.warning(
-                    "Notification queue full; dropping %s", notification.method
-                )
+                logger.warning("Notification queue full; dropping %s", notification.method)

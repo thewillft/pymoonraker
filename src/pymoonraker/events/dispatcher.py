@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from collections import defaultdict
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import TYPE_CHECKING, Any
 
-from pymoonraker.rpc.types import RpcNotification
+if TYPE_CHECKING:
+    from pymoonraker.rpc.types import RpcNotification
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +31,7 @@ class EventDispatcher:
     """
 
     def __init__(self) -> None:
+        """Initialize listener registry, dispatch task, and notification queue."""
         self._listeners: dict[str, list[Callback]] = defaultdict(list)
         self._dispatch_task: asyncio.Task[None] | None = None
         self._queue: asyncio.Queue[RpcNotification] | None = None
@@ -49,10 +53,8 @@ class EventDispatcher:
         self._listeners[event].append(callback)
 
         def _unsubscribe() -> None:
-            try:
+            with contextlib.suppress(ValueError):
                 self._listeners[event].remove(callback)
-            except ValueError:
-                pass
 
         return _unsubscribe
 
@@ -60,10 +62,8 @@ class EventDispatcher:
         """Register *callback* for *event*, automatically removing it after the first call."""
 
         def _wrapper(*args: Any, **kwargs: Any) -> Any:
-            try:
+            with contextlib.suppress(ValueError):
                 self._listeners[event].remove(_wrapper)
-            except ValueError:
-                pass
             return callback(*args, **kwargs)
 
         self._listeners[event].append(_wrapper)
@@ -72,18 +72,14 @@ class EventDispatcher:
 
     def start(self) -> None:
         """Start the background task that drains the notification queue."""
-        self._dispatch_task = asyncio.create_task(
-            self._dispatch_loop(), name="event-dispatcher"
-        )
+        self._dispatch_task = asyncio.create_task(self._dispatch_loop(), name="event-dispatcher")
 
     async def stop(self) -> None:
         """Cancel the dispatch loop."""
         if self._dispatch_task is not None:
             self._dispatch_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._dispatch_task
-            except asyncio.CancelledError:
-                pass
             self._dispatch_task = None
 
     # -- Internal ---------------------------------------------------------
