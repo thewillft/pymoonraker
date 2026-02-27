@@ -12,6 +12,8 @@ from pymoonraker.exceptions import MoonrakerConnectionError, MoonrakerRPCError
 from pymoonraker.rpc.types import RpcError, RpcNotification, RpcRequest, RpcResponse
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from pymoonraker.transport.websocket import WebSocketTransport
 
 logger = logging.getLogger(__name__)
@@ -39,16 +41,25 @@ class JsonRpcHandler:
         self._pending: dict[int, asyncio.Future[RpcResponse]] = {}
         self._notification_callback: asyncio.Queue[RpcNotification] | None = None
         self._reader_task: asyncio.Task[None] | None = None
+        self._on_disconnect: Callable[[], None] | None = None
 
     # -- Lifecycle --------------------------------------------------------
 
-    def start(self, notification_queue: asyncio.Queue[RpcNotification]) -> None:
+    def start(
+        self,
+        notification_queue: asyncio.Queue[RpcNotification],
+        *,
+        on_disconnect: Callable[[], None] | None = None,
+    ) -> None:
         """Begin reading messages from the transport.
 
         Notifications are placed on *notification_queue* for the event
         dispatcher to consume.
         """
         self._notification_callback = notification_queue
+        self._on_disconnect = on_disconnect
+        if self._reader_task is not None and not self._reader_task.done():
+            return
         self._reader_task = asyncio.create_task(self._read_loop(), name="jsonrpc-reader")
 
     async def stop(self) -> None:
@@ -58,12 +69,7 @@ class JsonRpcHandler:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._reader_task
             self._reader_task = None
-        for fut in self._pending.values():
-            if not fut.done():
-                fut.set_exception(
-                    MoonrakerConnectionError("Connection closed while waiting for RPC response")
-                )
-        self._pending.clear()
+        self._fail_pending_connection_closed()
 
     # -- Public API -------------------------------------------------------
 
@@ -118,11 +124,13 @@ class JsonRpcHandler:
 
     async def _read_loop(self) -> None:
         """Continuously read messages and dispatch them."""
+        disconnected = False
         while True:
             try:
                 raw = await self._transport.receive()
             except MoonrakerConnectionError:
                 logger.warning("Transport closed; exiting RPC read loop")
+                disconnected = True
                 break
             except asyncio.CancelledError:
                 raise
@@ -137,6 +145,11 @@ class JsonRpcHandler:
                 logger.debug("Received response for unknown id=%s", msg_id)
             else:
                 logger.debug("Unhandled message: %s", raw)
+
+        if disconnected:
+            self._fail_pending_connection_closed()
+            if self._on_disconnect is not None:
+                self._on_disconnect()
 
     def _resolve_pending(self, msg_id: int, raw: dict[str, Any]) -> None:
         future = self._pending.get(msg_id)
@@ -168,3 +181,12 @@ class JsonRpcHandler:
                 self._notification_callback.put_nowait(notification)
             except asyncio.QueueFull:
                 logger.warning("Notification queue full; dropping %s", notification.method)
+
+    def _fail_pending_connection_closed(self) -> None:
+        """Fail in-flight RPC futures when the underlying socket is gone."""
+        for fut in self._pending.values():
+            if not fut.done():
+                fut.set_exception(
+                    MoonrakerConnectionError("Connection closed while waiting for RPC response")
+                )
+        self._pending.clear()

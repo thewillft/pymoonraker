@@ -24,7 +24,7 @@ from pymoonraker.api._generated import (
 )
 from pymoonraker.auth import AuthManager
 from pymoonraker.events import EventDispatcher
-from pymoonraker.exceptions import MoonrakerConnectionError
+from pymoonraker.exceptions import MoonrakerConnectionError, MoonrakerRPCError
 from pymoonraker.models.common import KlippyState
 from pymoonraker.models.server import ConnectionIdentifyResult, PrinterInfo, ServerInfo
 from pymoonraker.rpc import JsonRpcHandler
@@ -100,6 +100,7 @@ class MoonrakerClient:
         self._reconnect_task: asyncio.Task[None] | None = None
         self._connected = asyncio.Event()
         self._closing = False
+        self._subscribed_objects: dict[str, list[str] | None] | None = None
 
     # -- Context manager --------------------------------------------------
 
@@ -120,10 +121,15 @@ class MoonrakerClient:
         await self._http_transport.connect()
         await self._ws_transport.connect()
 
-        self._rpc.start(self._events.notification_queue)
+        self._events.drain_notification_queue()
+        self._rpc.start(
+            self._events.notification_queue,
+            on_disconnect=self._on_transport_disconnect,
+        )
         self._events.start()
 
         await self._identify()
+        await self._restore_subscriptions()
 
         self._connected.set()
         logger.info("Connected to Moonraker at %s:%s", self._host, self._port)
@@ -239,7 +245,10 @@ class MoonrakerClient:
         timeout: float | None = None,
     ) -> Any:
         """Send a JSON-RPC request over WebSocket and return the result."""
-        return await self._rpc.call(method, params, timeout=timeout)
+        result = await self._rpc.call(method, params, timeout=timeout)
+        if method == "printer.objects.subscribe":
+            self._remember_subscription(params)
+        return result
 
     async def http_request(
         self,
@@ -381,15 +390,27 @@ class MoonrakerClient:
             await asyncio.sleep(delay)
             try:
                 await self._ws_transport.connect()
-                self._rpc.start(self._events.notification_queue)
+                self._events.drain_notification_queue()
+                self._rpc.start(
+                    self._events.notification_queue,
+                    on_disconnect=self._on_transport_disconnect,
+                )
                 self._events.start()
                 await self._identify()
+                await self._restore_subscriptions()
                 self._connected.set()
                 logger.info("Reconnected to Moonraker")
                 return
             except MoonrakerConnectionError:
                 delay = min(delay * 2, self._max_reconnect_interval)
                 logger.warning("Reconnect failed; retrying in %.1fs", delay)
+            except MoonrakerRPCError as exc:
+                delay = min(delay * 2, self._max_reconnect_interval)
+                logger.warning(
+                    "Reconnect handshake failed (%s); retrying in %.1fs",
+                    exc,
+                    delay,
+                )
 
     # -- Internal helpers -------------------------------------------------
 
@@ -405,3 +426,38 @@ class MoonrakerClient:
             },
         )
         return ConnectionIdentifyResult.model_validate(raw)
+
+    def _on_transport_disconnect(self) -> None:
+        """Handle unexpected transport closure by resetting state and reconnecting."""
+        if self._closing:
+            return
+        self._connected.clear()
+        self._events.drain_notification_queue()
+        self._schedule_reconnect()
+
+    def _remember_subscription(self, params: dict[str, Any] | None) -> None:
+        """Persist latest printer object subscription for replay after reconnect."""
+        if params is None:
+            return
+        objects = params.get("objects")
+        if not isinstance(objects, dict):
+            return
+
+        stored: dict[str, list[str] | None] = {}
+        for key, fields in objects.items():
+            if isinstance(fields, list):
+                stored[key] = list(fields)
+            else:
+                stored[key] = None
+        self._subscribed_objects = stored
+
+    async def _restore_subscriptions(self) -> None:
+        """Re-apply saved printer object subscriptions after reconnect.
+
+        Moonraker object subscriptions are tied to the active persistent
+        connection. After a disconnect/reconnect cycle, the client must
+        subscribe again to resume ``notify_status_update`` traffic.
+        """
+        if self._subscribed_objects is None:
+            return
+        await self.call("printer.objects.subscribe", {"objects": self._subscribed_objects})

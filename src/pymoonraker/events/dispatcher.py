@@ -72,6 +72,8 @@ class EventDispatcher:
 
     def start(self) -> None:
         """Start the background task that drains the notification queue."""
+        if self._dispatch_task is not None and not self._dispatch_task.done():
+            return
         self._dispatch_task = asyncio.create_task(self._dispatch_loop(), name="event-dispatcher")
 
     async def stop(self) -> None:
@@ -81,6 +83,25 @@ class EventDispatcher:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._dispatch_task
             self._dispatch_task = None
+        self.drain_notification_queue()
+
+    def drain_notification_queue(self) -> int:
+        """Drop queued notifications and return the number removed.
+
+        Used during shutdown/reconnect so events buffered from a previous
+        connection are not delivered after a new session is established.
+        """
+        queue = self._queue
+        if queue is None:
+            return 0
+
+        drained = 0
+        while True:
+            try:
+                queue.get_nowait()
+                drained += 1
+            except asyncio.QueueEmpty:
+                return drained
 
     # -- Internal ---------------------------------------------------------
 
