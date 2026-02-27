@@ -29,6 +29,12 @@ class SyncMoonrakerClient:
     Runs an event loop in a background daemon thread so that async
     operations are transparent to the caller.
 
+    **Limitation:** The sync client is currently limited and cannot be used
+    with API namespaces (e.g. ``client.printer``, ``client.files``). Use the
+    convenience methods on this client (e.g. ``server_info()``, ``gcode()``,
+    ``print_start()``) or use :class:`MoonrakerClient` for full namespace
+    access.
+
     Usage::
 
         with SyncMoonrakerClient("192.168.1.100") as client:

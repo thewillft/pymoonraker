@@ -8,6 +8,20 @@ import logging
 from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any, cast
 
+from pymoonraker.api._generated import (
+    AccessNamespace,
+    AnnouncementsNamespace,
+    DatabaseNamespace,
+    FilesNamespace,
+    HistoryNamespace,
+    JobQueueNamespace,
+    MachineNamespace,
+    PowerNamespace,
+    PrinterNamespace,
+    ServerNamespace,
+    UpdateManagerNamespace,
+    WebcamsNamespace,
+)
 from pymoonraker.auth import AuthManager
 from pymoonraker.events import EventDispatcher
 from pymoonraker.exceptions import MoonrakerConnectionError
@@ -139,6 +153,68 @@ class MoonrakerClient:
     def is_connected(self) -> bool:
         """Return ``True`` if the WebSocket is currently connected."""
         return self._ws_transport.connected
+
+    # -- API namespaces ---------------------------------------------------
+
+    @property
+    def printer(self) -> PrinterNamespace:
+        """Printer namespace: info, gcode, objects, print control."""
+        return PrinterNamespace(self)
+
+    @property
+    def server(self) -> ServerNamespace:
+        """Server namespace: info, config, temperature/gcode stores."""
+        return ServerNamespace(self)
+
+    @property
+    def files(self) -> FilesNamespace:
+        """Files namespace: list, metadata, directories, move, copy."""
+        return FilesNamespace(self)
+
+    @property
+    def job_queue(self) -> JobQueueNamespace:
+        """Job queue namespace: status, add, delete, pause, resume, start."""
+        return JobQueueNamespace(self)
+
+    @property
+    def history(self) -> HistoryNamespace:
+        """History namespace: list, totals, get_job, delete_job."""
+        return HistoryNamespace(self)
+
+    @property
+    def machine(self) -> MachineNamespace:
+        """Machine namespace: system_info, proc_stats, reboot, shutdown."""
+        return MachineNamespace(self)
+
+    @property
+    def update_manager(self) -> UpdateManagerNamespace:
+        """Update manager namespace: get_status, refresh."""
+        return UpdateManagerNamespace(self)
+
+    @property
+    def power(self) -> PowerNamespace:
+        """Power namespace: get_devices, get_device_status, toggle_device."""
+        return PowerNamespace(self)
+
+    @property
+    def access(self) -> AccessNamespace:
+        """Access namespace: login, logout, users, JWT."""
+        return AccessNamespace(self)
+
+    @property
+    def database(self) -> DatabaseNamespace:
+        """Database namespace: get_item, list_namespaces, get_namespace_item."""
+        return DatabaseNamespace(self)
+
+    @property
+    def announcements(self) -> AnnouncementsNamespace:
+        """Announcements namespace: list, dismiss, dismiss_wake."""
+        return AnnouncementsNamespace(self)
+
+    @property
+    def webcams(self) -> WebcamsNamespace:
+        """Webcams namespace: list, get_item."""
+        return WebcamsNamespace(self)
 
     # -- Event registration -----------------------------------------------
 

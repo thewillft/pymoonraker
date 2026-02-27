@@ -37,34 +37,31 @@ with SyncMoonrakerClient("192.168.1.100") as client:
 
 ## API namespaces (typed methods)
 
-All Moonraker JSON-RPC endpoints are exposed as typed async methods on namespace classes. Construct a namespace with the client, then call methods (they are async on `MoonrakerClient` and blocking on `SyncMoonrakerClient`).
+All Moonraker JSON-RPC endpoints are exposed as typed async methods on namespace objects. Access them via client attributes: `client.printer`, `client.server`, `client.files`, etc. Methods are async on `MoonrakerClient` and blocking on `SyncMoonrakerClient`.
 
-| Namespace            | Use for |
-|----------------------|--------|
-| `PrinterNamespace`   | printer.info, emergency_stop, restart, gcode_script, objects_list, objects_query, objects_subscribe, print.start/pause/resume/cancel |
-| `ServerNamespace`    | server.info, config, connection.identify, restart, gcode_store, temperature_store |
-| `FilesNamespace`     | list, metadata, get_directory, create_directory, delete_directory, move, copy, file_metadata |
-| `JobQueueNamespace`  | status, add, delete, pause, resume, start |
-| `HistoryNamespace`  | list, totals, get_job, delete_job |
-| `MachineNamespace`   | system_info, proc_stats, reboot, shutdown, get_system_info, get_network_info |
-| `UpdateManagerNamespace` | get_status, refresh |
-| `PowerNamespace`     | get_devices, get_device_status, toggle_device |
-| `AccessNamespace`    | login, logout, refresh_jwt, get_user, create_user, delete_user, list_users |
-| `DatabaseNamespace`  | get_item, list_namespaces, get_namespace_item |
-| `AnnouncementsNamespace` | list, dismiss, dismiss_wake |
-| `WebcamsNamespace`   | list, get_item |
+| Client attribute   | Use for |
+|--------------------|--------|
+| `client.printer`   | printer.info, emergency_stop, restart, gcode_script, objects_list, objects_query, objects_subscribe, print.start/pause/resume/cancel |
+| `client.server`    | server.info, config, connection.identify, restart, gcode_store, temperature_store |
+| `client.files`     | list, metadata, get_directory, create_directory, delete_directory, move, copy, file_metadata |
+| `client.job_queue` | status, add, delete, pause, resume, start |
+| `client.history`   | list, totals, get_job, delete_job |
+| `client.machine`   | system_info, proc_stats, reboot, shutdown, get_system_info, get_network_info |
+| `client.update_manager` | get_status, refresh |
+| `client.power`     | get_devices, get_device_status, toggle_device |
+| `client.access`    | login, logout, refresh_jwt, get_user, create_user, delete_user, list_users |
+| `client.database`  | get_item, list_namespaces, get_namespace_item |
+| `client.announcements` | list, dismiss, dismiss_wake |
+| `client.webcams`   | list, get_item |
 
 Example:
 
 ```python
 from pymoonraker import MoonrakerClient
-from pymoonraker.api import PrinterNamespace, FilesNamespace
 
 async with MoonrakerClient("192.168.1.100") as client:
-    printer = PrinterNamespace(client)
-    files = FilesNamespace(client)
-    info = await printer.info()
-    file_list = await files.list(root="gcodes")
+    info = await client.printer.info()
+    file_list = await client.files.list(root="gcodes")
 ```
 
 ## Convenience methods on the client
@@ -100,7 +97,7 @@ await client.subscribe_objects({"toolhead": None, "print_stats": None})
 ## Authentication
 
 - API key: `MoonrakerClient(host, api_key="your-key")`
-- JWT/login: use `AccessNamespace(client).login(...)` and/or the SDK’s auth handling as documented.
+- JWT/login: use `client.access.login(...)` and/or the SDK’s auth handling as documented.
 
 ## Errors
 

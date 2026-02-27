@@ -80,29 +80,18 @@ with SyncMoonrakerClient("192.168.1.100") as client:
 
 ### Auto-Generated API Namespaces
 
-Every Moonraker endpoint is available as a typed method on auto-generated namespace objects:
+Every Moonraker endpoint is available as a typed method on namespace objects exposed as client attributes:
 
 ```python
-from pymoonraker.api import (
-    PrinterNamespace,
-    ServerNamespace,
-    FilesNamespace,
-    JobQueueNamespace,
-    HistoryNamespace,
-    MachineNamespace,
-)
-
 async with MoonrakerClient("192.168.1.100") as client:
-    printer = PrinterNamespace(client)
-    server = ServerNamespace(client)
-    files = FilesNamespace(client)
-
-    # All methods are fully typed with docstrings
-    info = await printer.info()
-    help_text = await printer.gcode_help()
-    file_list = await files.list(root="gcodes")
-    metadata = await files.metadata("my_model.gcode")
+    # Access namespaces via client.printer, client.files, etc.
+    info = await client.printer.info()
+    help_text = await client.printer.gcode_help()
+    file_list = await client.files.list(root="gcodes")
+    metadata = await client.files.metadata("my_model.gcode")
 ```
+
+You can also construct namespace instances manually if needed: `from pymoonraker.api import PrinterNamespace` then `PrinterNamespace(client)`.
 
 ### Event Handling
 
