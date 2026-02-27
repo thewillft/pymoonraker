@@ -98,21 +98,41 @@ class JsonRpcHandler:
         self._pending[req_id] = future
 
         try:
+            logger.debug(
+                "Sending RPC request '%s'",
+                method,
+                extra=self._log_extra(request_id=req_id),
+            )
             await self._transport.send(request.to_dict())
             resp = await asyncio.wait_for(future, timeout=timeout or self._default_timeout)
         except asyncio.TimeoutError:
             self._pending.pop(req_id, None)
+            logger.warning(
+                "RPC request '%s' timed out",
+                method,
+                extra=self._log_extra(request_id=req_id),
+            )
             raise
         finally:
             self._pending.pop(req_id, None)
 
         if resp.is_error:
             assert resp.error is not None
+            logger.warning(
+                "RPC request '%s' returned an error response",
+                method,
+                extra=self._log_extra(request_id=req_id),
+            )
             raise MoonrakerRPCError(
                 code=resp.error.code,
                 message=resp.error.message,
                 data=resp.error.data,
             )
+        logger.debug(
+            "RPC request '%s' completed successfully",
+            method,
+            extra=self._log_extra(request_id=req_id),
+        )
         return resp.result
 
     async def notify(self, method: str, params: dict[str, Any] | None = None) -> None:
@@ -129,7 +149,7 @@ class JsonRpcHandler:
             try:
                 raw = await self._transport.receive()
             except MoonrakerConnectionError:
-                logger.warning("Transport closed; exiting RPC read loop")
+                logger.warning("Transport closed; exiting RPC read loop", extra=self._log_extra())
                 disconnected = True
                 break
             except asyncio.CancelledError:
@@ -142,9 +162,13 @@ class JsonRpcHandler:
             elif "method" in raw:
                 self._dispatch_notification(raw)
             elif msg_id is not None:
-                logger.debug("Received response for unknown id=%s", msg_id)
+                logger.debug(
+                    "Received response for unknown id=%s",
+                    msg_id,
+                    extra=self._log_extra(request_id=msg_id),
+                )
             else:
-                logger.debug("Unhandled message: %s", raw)
+                logger.debug("Unhandled message: %s", raw, extra=self._log_extra())
 
         if disconnected:
             self._fail_pending_connection_closed()
@@ -180,7 +204,11 @@ class JsonRpcHandler:
             try:
                 self._notification_callback.put_nowait(notification)
             except asyncio.QueueFull:
-                logger.warning("Notification queue full; dropping %s", notification.method)
+                logger.warning(
+                    "Notification queue full; dropping %s",
+                    notification.method,
+                    extra=self._log_extra(),
+                )
 
     def _fail_pending_connection_closed(self) -> None:
         """Fail in-flight RPC futures when the underlying socket is gone."""
@@ -190,3 +218,12 @@ class JsonRpcHandler:
                     MoonrakerConnectionError("Connection closed while waiting for RPC response")
                 )
         self._pending.clear()
+
+    def _log_extra(self, request_id: Any = None) -> dict[str, Any]:
+        extra: dict[str, Any] = {
+            "host": self._transport.host,
+            "port": self._transport.port,
+        }
+        if request_id is not None:
+            extra["request_id"] = request_id
+        return extra

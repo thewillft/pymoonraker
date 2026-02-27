@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
+from urllib.parse import urlsplit
 
 import aiohttp
 
@@ -42,6 +43,12 @@ class WebSocketTransport(BaseTransport):
         self._close_timeout = close_timeout
         self._ssl = ssl
         self._ws: aiohttp.ClientWebSocketResponse | None = None
+        parsed_url = urlsplit(url)
+        self._host = parsed_url.hostname or ""
+        parsed_port = parsed_url.port
+        if parsed_port is None:
+            parsed_port = 443 if parsed_url.scheme == "wss" else 80
+        self._port = parsed_port
 
     # -- BaseTransport interface ------------------------------------------
 
@@ -55,7 +62,7 @@ class WebSocketTransport(BaseTransport):
                 heartbeat=self._heartbeat,
                 ssl=self._ssl,
             )
-            logger.info("WebSocket connected to %s", self._url)
+            logger.info("WebSocket connected to %s", self._url, extra=self._log_extra())
         except (aiohttp.ClientError, OSError) as exc:
             raise MoonrakerConnectionError(f"Failed to connect to {self._url}: {exc}") from exc
 
@@ -63,7 +70,7 @@ class WebSocketTransport(BaseTransport):
         """Close the WebSocket and, if we own the session, the session too."""
         if self._ws is not None and not self._ws.closed:
             await self._ws.close()
-            logger.info("WebSocket disconnected from %s", self._url)
+            logger.info("WebSocket disconnected from %s", self._url, extra=self._log_extra())
         self._ws = None
         if not self._external_session and self._session is not None:
             await self._session.close()
@@ -92,7 +99,20 @@ class WebSocketTransport(BaseTransport):
         """Return ``True`` when the WebSocket is open."""
         return self._ws is not None and not self._ws.closed
 
+    @property
+    def host(self) -> str:
+        """Return the transport host used for structured log context."""
+        return self._host
+
+    @property
+    def port(self) -> int:
+        """Return the transport port used for structured log context."""
+        return self._port
+
     # -- Internal helpers -------------------------------------------------
+
+    def _log_extra(self) -> dict[str, Any]:
+        return {"host": self._host, "port": self._port}
 
     def _ensure_ws(self) -> aiohttp.ClientWebSocketResponse:
         if self._ws is None or self._ws.closed:

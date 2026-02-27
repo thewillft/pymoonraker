@@ -132,7 +132,12 @@ class MoonrakerClient:
         await self._restore_subscriptions()
 
         self._connected.set()
-        logger.info("Connected to Moonraker at %s:%s", self._host, self._port)
+        logger.info(
+            "Connected to Moonraker at %s:%s",
+            self._host,
+            self._port,
+            extra=self._connection_log_extra(),
+        )
 
     async def disconnect(self) -> None:
         """Gracefully shut down all connections and background tasks."""
@@ -149,7 +154,7 @@ class MoonrakerClient:
         await self._rpc.stop()
         await self._ws_transport.disconnect()
         await self._http_transport.disconnect()
-        logger.info("Disconnected from Moonraker")
+        logger.info("Disconnected from Moonraker", extra=self._connection_log_extra())
 
     async def wait_connected(self, timeout: float | None = None) -> None:
         """Block until the client is connected (useful after auto-reconnect)."""
@@ -386,7 +391,11 @@ class MoonrakerClient:
     async def _reconnect_loop(self) -> None:
         delay = self._reconnect_interval
         while not self._closing:
-            logger.info("Reconnecting in %.1fs…", delay)
+            logger.info(
+                "Reconnecting in %.1fs…",
+                delay,
+                extra=self._connection_log_extra(),
+            )
             await asyncio.sleep(delay)
             try:
                 await self._ws_transport.connect()
@@ -399,17 +408,22 @@ class MoonrakerClient:
                 await self._identify()
                 await self._restore_subscriptions()
                 self._connected.set()
-                logger.info("Reconnected to Moonraker")
+                logger.info("Reconnected to Moonraker", extra=self._connection_log_extra())
                 return
             except MoonrakerConnectionError:
                 delay = min(delay * 2, self._max_reconnect_interval)
-                logger.warning("Reconnect failed; retrying in %.1fs", delay)
+                logger.warning(
+                    "Reconnect failed; retrying in %.1fs",
+                    delay,
+                    extra=self._connection_log_extra(),
+                )
             except MoonrakerRPCError as exc:
                 delay = min(delay * 2, self._max_reconnect_interval)
                 logger.warning(
                     "Reconnect handshake failed (%s); retrying in %.1fs",
                     exc,
                     delay,
+                    extra=self._connection_log_extra(),
                 )
 
     # -- Internal helpers -------------------------------------------------
@@ -432,6 +446,7 @@ class MoonrakerClient:
         if self._closing:
             return
         self._connected.clear()
+        logger.warning("Transport disconnected unexpectedly", extra=self._connection_log_extra())
         self._events.drain_notification_queue()
         self._schedule_reconnect()
 
@@ -461,3 +476,6 @@ class MoonrakerClient:
         if self._subscribed_objects is None:
             return
         await self.call("printer.objects.subscribe", {"objects": self._subscribed_objects})
+
+    def _connection_log_extra(self) -> dict[str, Any]:
+        return {"host": self._host, "port": self._port}

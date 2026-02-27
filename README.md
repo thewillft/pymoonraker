@@ -132,6 +132,51 @@ client = MoonrakerClient("192.168.1.100", api_key="your-api-key")
 # JWT authentication is handled by the AuthManager internally
 ```
 
+### Logging (Structured Context)
+
+The SDK emits log records with structured context fields in `extra`, including:
+
+- `host`
+- `port`
+- `request_id` (for JSON-RPC request lifecycle logs)
+
+`extra` fields are attached to log records, but they are not shown unless your application formatter includes them. As a library, `pymoonraker` does **not** configure global logging handlers/formatters for you.
+
+If you want these fields in plain-text logs, configure a filter that provides defaults:
+
+```python
+import logging
+
+
+class MoonrakerContextDefaultsFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Keep values provided by logger(..., extra=...) and only fill missing fields.
+        if not hasattr(record, "host"):
+            record.host = "-"
+        if not hasattr(record, "port"):
+            record.port = "-"
+        if not hasattr(record, "request_id"):
+            record.request_id = "-"
+        return True
+
+
+handler = logging.StreamHandler()
+handler.addFilter(MoonrakerContextDefaultsFilter())
+handler.setFormatter(
+    logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s "
+        "host=%(host)s port=%(port)s request_id=%(request_id)s %(message)s"
+    )
+)
+
+root = logging.getLogger()
+root.setLevel(logging.INFO)
+root.handlers.clear()
+root.addHandler(handler)
+```
+
+If you already use JSON logging or another structured logging pipeline, keep your existing setup and map these record attributes there.
+
 ## Architecture
 
 ```
