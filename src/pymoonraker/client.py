@@ -84,6 +84,7 @@ class MoonrakerClient:
             reconnect_interval: Initial reconnect delay in seconds.
             max_reconnect_interval: Maximum reconnect delay in seconds.
             rpc_timeout: Default timeout for JSON-RPC calls in seconds.
+
         """
         scheme_ws = "wss" if ssl else "ws"
         scheme_http = "https" if ssl else "http"
@@ -249,6 +250,7 @@ class MoonrakerClient:
 
         Returns:
             Callable with no arguments that unsubscribes the callback.
+
         """
         return self._events.on(str(event), callback)
 
@@ -260,6 +262,7 @@ class MoonrakerClient:
         Args:
             event: Moonraker notification name or ``EventType`` constant.
             callback: Sync or async callback invoked once.
+
         """
         self._events.once(str(event), callback)
 
@@ -281,6 +284,7 @@ class MoonrakerClient:
 
         Returns:
             Decoded ``result`` payload from the JSON-RPC response.
+
         """
         result = await self._rpc.call(method, params, timeout=timeout)
         if method == "printer.objects.subscribe":
@@ -302,6 +306,7 @@ class MoonrakerClient:
 
         Returns:
             Decoded HTTP response payload.
+
         """
         return await self._http_transport.request(method, path, **kwargs)
 
@@ -345,6 +350,7 @@ class MoonrakerClient:
 
         Returns:
             ``status`` mapping keyed by printer object name.
+
         """
         return cast(
             "dict[str, Any]", await self.call("printer.objects.query", {"objects": objects})
@@ -363,6 +369,7 @@ class MoonrakerClient:
 
         Returns:
             Initial snapshot payload returned by Moonraker.
+
         """
         return cast(
             "dict[str, Any]", await self.call("printer.objects.subscribe", {"objects": objects})
@@ -378,6 +385,7 @@ class MoonrakerClient:
 
         Returns:
             Moonraker response string.
+
         """
         return cast("str", await self.call("printer.gcode.script", {"script": script}))
 
@@ -423,6 +431,7 @@ class MoonrakerClient:
 
         Returns:
             Moonraker upload response payload.
+
         """
         return await self._http_transport.upload_file(
             file_path, content, root=root, target_path=target_path
@@ -437,6 +446,7 @@ class MoonrakerClient:
 
         Returns:
             Raw file bytes.
+
         """
         return await self._http_transport.download_file(root, file_path)
 

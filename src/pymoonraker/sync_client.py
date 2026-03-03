@@ -48,6 +48,7 @@ class SyncMoonrakerClient:
         Args:
             *args: Positional args forwarded to ``MoonrakerClient``.
             **kwargs: Keyword args forwarded to ``MoonrakerClient``.
+
         """
         self._args = args
         self._kwargs = kwargs
@@ -122,6 +123,7 @@ class SyncMoonrakerClient:
 
         Returns:
             Decoded ``result`` payload.
+
         """
         return self._run(self._ensure_client().call(method, params, timeout=timeout))
 
@@ -181,6 +183,7 @@ class SyncMoonrakerClient:
 
         Returns:
             Callable with no arguments that unregisters the callback.
+
         """
         return self._ensure_client().on(event, callback)
 
