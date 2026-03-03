@@ -1,0 +1,3 @@
+# AccessNamespace
+
+::: pymoonraker.api.AccessNamespace

@@ -1,0 +1,3 @@
+# WebcamsNamespace
+
+::: pymoonraker.api.WebcamsNamespace

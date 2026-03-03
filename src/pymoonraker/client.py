@@ -73,7 +73,18 @@ class MoonrakerClient:
         max_reconnect_interval: float = 60.0,
         rpc_timeout: float = 30.0,
     ) -> None:
-        """Initialize transports, RPC handler, and reconnect settings."""
+        """Initialize a Moonraker client instance.
+
+        Args:
+            host: Moonraker host name or IP address.
+            port: Moonraker API port (defaults to ``7125``).
+            api_key: Optional Moonraker API key for authenticated requests.
+            ssl: SSL context/config passed through to HTTP and WebSocket transports.
+            auto_reconnect: Whether to reconnect after unexpected disconnects.
+            reconnect_interval: Initial reconnect delay in seconds.
+            max_reconnect_interval: Maximum reconnect delay in seconds.
+            rpc_timeout: Default timeout for JSON-RPC calls in seconds.
+        """
         scheme_ws = "wss" if ssl else "ws"
         scheme_http = "https" if ssl else "http"
 
@@ -232,12 +243,24 @@ class MoonrakerClient:
     def on(self, event: str | EventType, callback: Callback) -> Callable[[], None]:
         """Register a callback for a Moonraker notification event.
 
-        Returns a callable to unsubscribe.
+        Args:
+            event: Moonraker notification name or ``EventType`` constant.
+            callback: Sync or async callback invoked when the event is received.
+
+        Returns:
+            Callable with no arguments that unsubscribes the callback.
         """
         return self._events.on(str(event), callback)
 
     def once(self, event: str | EventType, callback: Callback) -> None:
-        """Register a one-shot callback for *event*."""
+        """Register a one-shot callback for an event.
+
+        The callback is removed after the first matching notification.
+
+        Args:
+            event: Moonraker notification name or ``EventType`` constant.
+            callback: Sync or async callback invoked once.
+        """
         self._events.once(str(event), callback)
 
     # -- RPC convenience --------------------------------------------------
@@ -249,7 +272,16 @@ class MoonrakerClient:
         *,
         timeout: float | None = None,
     ) -> Any:
-        """Send a JSON-RPC request over WebSocket and return the result."""
+        """Send a JSON-RPC request over WebSocket.
+
+        Args:
+            method: Moonraker JSON-RPC method (for example ``"server.info"``).
+            params: Optional JSON-RPC params object.
+            timeout: Optional request timeout override in seconds.
+
+        Returns:
+            Decoded ``result`` payload from the JSON-RPC response.
+        """
         result = await self._rpc.call(method, params, timeout=timeout)
         if method == "printer.objects.subscribe":
             self._remember_subscription(params)
@@ -261,7 +293,16 @@ class MoonrakerClient:
         path: str,
         **kwargs: Any,
     ) -> Any:
-        """Send an HTTP request via the HTTP transport."""
+        """Send an HTTP request through Moonraker's REST endpoints.
+
+        Args:
+            method: HTTP method such as ``"GET"`` or ``"POST"``.
+            path: Endpoint path beginning with ``/``.
+            **kwargs: Additional arguments forwarded to the HTTP transport.
+
+        Returns:
+            Decoded HTTP response payload.
+        """
         return await self._http_transport.request(method, path, **kwargs)
 
     # -- Server / Printer info --------------------------------------------
@@ -298,6 +339,12 @@ class MoonrakerClient:
                 "toolhead": ["position", "homed_axes"],
                 "heater_bed": None,  # all fields
             })
+
+        Args:
+            objects: Mapping of object name to field list or ``None`` for all fields.
+
+        Returns:
+            ``status`` mapping keyed by printer object name.
         """
         return cast(
             "dict[str, Any]", await self.call("printer.objects.query", {"objects": objects})
@@ -310,6 +357,12 @@ class MoonrakerClient:
         """Subscribe to printer object updates.
 
         Updated values arrive as ``notify_status_update`` events.
+
+        Args:
+            objects: Mapping of object name to field list or ``None`` for all fields.
+
+        Returns:
+            Initial snapshot payload returned by Moonraker.
         """
         return cast(
             "dict[str, Any]", await self.call("printer.objects.subscribe", {"objects": objects})
@@ -318,7 +371,14 @@ class MoonrakerClient:
     # -- G-code -----------------------------------------------------------
 
     async def gcode(self, script: str) -> str:
-        """Execute a G-code script and return the response."""
+        """Execute a G-code script.
+
+        Args:
+            script: G-code commands to execute.
+
+        Returns:
+            Moonraker response string.
+        """
         return cast("str", await self.call("printer.gcode.script", {"script": script}))
 
     async def emergency_stop(self) -> None:
@@ -353,13 +413,31 @@ class MoonrakerClient:
         root: str = "gcodes",
         target_path: str | None = None,
     ) -> Any:
-        """Upload a file to Moonraker."""
+        """Upload a file to Moonraker over HTTP.
+
+        Args:
+            file_path: Source filename (used as upload name unless ``target_path`` is set).
+            content: File bytes.
+            root: Moonraker file root, usually ``"gcodes"``.
+            target_path: Optional path within the selected root.
+
+        Returns:
+            Moonraker upload response payload.
+        """
         return await self._http_transport.upload_file(
             file_path, content, root=root, target_path=target_path
         )
 
     async def download_file(self, root: str, file_path: str) -> bytes:
-        """Download a file from Moonraker."""
+        """Download a file from Moonraker over HTTP.
+
+        Args:
+            root: Moonraker file root.
+            file_path: Path to the file inside ``root``.
+
+        Returns:
+            Raw file bytes.
+        """
         return await self._http_transport.download_file(root, file_path)
 
     # -- Restart / power --------------------------------------------------

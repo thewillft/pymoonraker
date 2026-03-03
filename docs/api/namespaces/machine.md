@@ -1,0 +1,3 @@
+# MachineNamespace
+
+::: pymoonraker.api.MachineNamespace

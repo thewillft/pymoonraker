@@ -49,7 +49,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/thewillft/pymoonraker"
-Documentation = "https://github.com/thewillft/pymoonraker#readme"
+Documentation = "https://thewillft.github.io/pymoonraker/"
 Repository = "https://github.com/thewillft/pymoonraker"
 Issues = "https://github.com/thewillft/pymoonraker/issues"
 Changelog = "https://github.com/thewillft/pymoonraker/blob/main/CHANGELOG.md"

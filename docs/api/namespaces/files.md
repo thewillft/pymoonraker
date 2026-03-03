@@ -1,0 +1,3 @@
+# FilesNamespace
+
+::: pymoonraker.api.FilesNamespace

@@ -1,0 +1,3 @@
+# UpdateManagerNamespace
+
+::: pymoonraker.api.UpdateManagerNamespace

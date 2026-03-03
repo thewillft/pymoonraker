@@ -43,7 +43,12 @@ class SyncMoonrakerClient:
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """Store client construction arguments for deferred connection."""
+        """Store async client construction arguments for deferred startup.
+
+        Args:
+            *args: Positional args forwarded to ``MoonrakerClient``.
+            **kwargs: Keyword args forwarded to ``MoonrakerClient``.
+        """
         self._args = args
         self._kwargs = kwargs
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -64,7 +69,7 @@ class SyncMoonrakerClient:
     # -- Lifecycle --------------------------------------------------------
 
     def connect(self) -> None:
-        """Start the background loop and connect."""
+        """Start the background loop and connect the underlying async client."""
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(
             target=self._loop.run_forever, daemon=True, name="pymoonraker-sync"
@@ -74,7 +79,7 @@ class SyncMoonrakerClient:
         self._run(self._client.connect())
 
     def disconnect(self) -> None:
-        """Disconnect and shut down the background loop."""
+        """Disconnect and stop the background event loop thread."""
         if self._client:
             self._run(self._client.disconnect())
             self._client = None
@@ -108,7 +113,16 @@ class SyncMoonrakerClient:
         *,
         timeout: float | None = None,
     ) -> Any:
-        """Send a JSON-RPC request."""
+        """Send a Moonraker JSON-RPC request and block for the response.
+
+        Args:
+            method: Moonraker JSON-RPC method.
+            params: Optional request params.
+            timeout: Optional timeout override in seconds.
+
+        Returns:
+            Decoded ``result`` payload.
+        """
         return self._run(self._ensure_client().call(method, params, timeout=timeout))
 
     def gcode(self, script: str) -> str:
@@ -143,7 +157,7 @@ class SyncMoonrakerClient:
         root: str = "gcodes",
         target_path: str | None = None,
     ) -> Any:
-        """Upload a file."""
+        """Upload a file through the underlying HTTP transport."""
         return self._run(
             self._ensure_client().upload_file(
                 file_path, content, root=root, target_path=target_path
@@ -151,19 +165,23 @@ class SyncMoonrakerClient:
         )
 
     def download_file(self, root: str, file_path: str) -> bytes:
-        """Download a file."""
+        """Download a file through the underlying HTTP transport."""
         return self._run(self._ensure_client().download_file(root, file_path))
 
     def query_objects(self, objects: dict[str, list[str] | None]) -> dict[str, Any]:
-        """Query printer objects."""
+        """Query one or more printer objects and return current status."""
         return self._run(self._ensure_client().query_objects(objects))
 
     def subscribe_objects(self, objects: dict[str, list[str] | None]) -> dict[str, Any]:
-        """Subscribe to printer object updates."""
+        """Subscribe to printer object updates for status notifications."""
         return self._run(self._ensure_client().subscribe_objects(objects))
 
     def on(self, event: str | EventType, callback: Callback) -> Callable[[], None]:
-        """Register an event callback."""
+        """Register a persistent event callback.
+
+        Returns:
+            Callable with no arguments that unregisters the callback.
+        """
         return self._ensure_client().on(event, callback)
 
     def once(self, event: str | EventType, callback: Callback) -> None:
@@ -173,11 +191,13 @@ class SyncMoonrakerClient:
     # -- Internal ---------------------------------------------------------
 
     def _ensure_client(self) -> MoonrakerClient:
+        """Return connected async client or raise if not connected."""
         if self._client is None:
             raise RuntimeError("Client is not connected; call connect() first")
         return self._client
 
     def _run(self, coro: Coroutine[Any, Any, T]) -> T:
+        """Run a coroutine on the background loop and block for completion."""
         if self._loop is None:
             raise RuntimeError("Event loop not running; call connect() first")
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)

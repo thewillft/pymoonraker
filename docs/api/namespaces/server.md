@@ -1,0 +1,3 @@
+# ServerNamespace
+
+::: pymoonraker.api.ServerNamespace

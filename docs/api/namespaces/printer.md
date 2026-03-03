@@ -1,0 +1,3 @@
+# PrinterNamespace
+
+::: pymoonraker.api.PrinterNamespace

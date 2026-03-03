@@ -85,3 +85,16 @@ jobs:
             echo "::error::Generated bindings are out of date. Run 'python scripts/generate_bindings.py' and commit."
             exit 1
           fi
+
+  docs-check:
+    name: Docs Build (Strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install docs dependencies
+        run: pip install -e ".[docs]"
+      - name: Build docs in strict mode
+        run: mkdocs build --strict

@@ -4,6 +4,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/pymoonraker)](https://pypi.org/project/pymoonraker/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/thewillft/pymoonraker/actions/workflows/ci.yml/badge.svg)](https://github.com/thewillft/pymoonraker/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-mkdocs%20material-blueviolet)](https://thewillft.github.io/pymoonraker/)
 
 **Async-first, fully typed Python SDK for the [Moonraker](https://github.com/Arksine/moonraker) API** — the networked interface for [Klipper](https://www.klipper3d.org/) 3D printer firmware.
 

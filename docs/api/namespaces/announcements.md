@@ -1,0 +1,3 @@
+# AnnouncementsNamespace
+
+::: pymoonraker.api.AnnouncementsNamespace

@@ -1,0 +1,3 @@
+# PowerNamespace
+
+::: pymoonraker.api.PowerNamespace

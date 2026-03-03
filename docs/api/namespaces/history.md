@@ -1,0 +1,3 @@
+# HistoryNamespace
+
+::: pymoonraker.api.HistoryNamespace

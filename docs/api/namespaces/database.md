@@ -1,0 +1,3 @@
+# DatabaseNamespace
+
+::: pymoonraker.api.DatabaseNamespace

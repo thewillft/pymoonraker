@@ -1,0 +1,3 @@
+# JobQueueNamespace
+
+::: pymoonraker.api.JobQueueNamespace

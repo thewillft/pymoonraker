@@ -59,6 +59,34 @@ API endpoint bindings are auto-generated from `schema/moonraker_api.yaml`.
 
 **Never edit `src/pymoonraker/api/_generated.py` by hand** — it will be overwritten.
 
+## Documentation Maintenance
+
+This project uses MkDocs + mkdocstrings. API reference pages are generated from docstrings, and navigation is intentionally explicit.
+
+### Notes
+
+- **Manual nav:** `mkdocs.yml` is explicit. New docs pages do not appear in site nav until added there.
+- **Namespace pages are manual:** If you add a namespace in `schema/moonraker_api.yaml`, also add:
+  - a page under `docs/api/namespaces/`
+  - a nav entry in `mkdocs.yml`
+  - (optionally) a bullet in `docs/api/namespaces/index.md`
+- **Auto-generated docs quality depends on docstrings:** mkdocstrings reflects current source docstrings. Keep public method/class docstrings updated when behavior changes.
+- **Docs deploy workflow is not a substitute for PR validation:** deployment runs separately; always run/build docs during development and in CI checks.
+
+### Docs checklist for API/schema changes
+
+When changing schema, namespaces, or public API behavior:
+
+1. Regenerate bindings (`python scripts/generate_bindings.py`)
+2. Update relevant docstrings for changed public symbols
+3. Add/update docs pages and nav entries (`mkdocs.yml`) when needed
+4. Run strict docs build:
+
+```bash
+pip install -e ".[docs]"
+mkdocs build --strict
+```
+
 ## Adding New Models
 
 Add Pydantic models in the appropriate file under `src/pymoonraker/models/`:
