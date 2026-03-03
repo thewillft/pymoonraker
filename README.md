@@ -6,6 +6,8 @@
 [![CI](https://github.com/thewillft/pymoonraker/actions/workflows/ci.yml/badge.svg)](https://github.com/thewillft/pymoonraker/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-mkdocs%20material-blueviolet)](https://thewillft.github.io/pymoonraker/)
 
+**Control your 3D Printer with Python.**
+
 **Async-first, fully typed Python SDK for the [Moonraker](https://github.com/Arksine/moonraker) API** — the networked interface for [Klipper](https://www.klipper3d.org/) 3D printer firmware.
 
 ---
