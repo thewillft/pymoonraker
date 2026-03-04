@@ -81,9 +81,11 @@ with SyncMoonrakerClient("192.168.1.100") as client:
     client.gcode("G28")
 ```
 
+`SyncMoonrakerClient` currently exposes core convenience methods only; generated namespace attributes (for example `client.printer` and `client.files`) are not yet available on the sync wrapper.
+
 ### Auto-Generated API Namespaces
 
-Every Moonraker endpoint is available as a typed method on namespace objects exposed as client attributes:
+On `MoonrakerClient` (async), every Moonraker endpoint is available as a typed method on namespace objects exposed as client attributes:
 
 ```python
 async with MoonrakerClient("192.168.1.100") as client:
